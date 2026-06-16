@@ -55,6 +55,14 @@ Specialized tools for LLM workflow integration:
 - **Wrapper Scripts**: LLM completion detector wrappers
 - **Resource Cleanup**: Automated cleanup of detection resources
 
+### 🪟 Windows-MCP Integration (Windows hosts)
+Bring up [CursorTouch/Windows-MCP](https://github.com/CursorTouch/Windows-MCP) for desktop
+situational awareness when running zellij on Windows:
+- **Secure transport**: launches over `streamable-http` with locally-trusted TLS
+- **Certificate setup**: installs `mkcert` via scoop → winget → choco (openssl self-signed fallback)
+- **Single-instance launch**: idempotent "launch once" with port + PID-lockfile guards
+- **Scheduled task**: optional persistent install that starts at login
+
 ### 🛡️ Security & Performance
 Enterprise-grade security and performance features:
 - **Input Validation**: Comprehensive input sanitization and validation
@@ -224,6 +232,20 @@ npm run dev
 | `zellij_clear_cache` | Clear MCP server cache |
 | `zellij_get_cache_stats` | Get cache statistics |
 | `zellij_health_check` | Perform system health check |
+
+### Windows-MCP Integration Tools (Windows hosts only)
+
+| Tool | Description |
+|------|-------------|
+| `zellij_windows_mcp_setup` | One-shot: install mkcert, generate TLS certs + auth key, launch the server |
+| `zellij_windows_mcp_launch` | Idempotently launch Windows-MCP once over secure streamable-http |
+| `zellij_windows_mcp_status` | Report whether the server is running, its PID and URL |
+| `zellij_windows_mcp_stop` | Stop the server started by this integration |
+| `zellij_windows_mcp_install_task` | Register a persistent scheduled task (starts at login) |
+
+On non-Windows hosts these tools return a clear "Windows-only" message and take no action.
+See [docs/WINDOWS-MCP-INTEGRATION.md](docs/WINDOWS-MCP-INTEGRATION.md) for the full setup
+guide, the interactive-vs-automated split, and configuration options.
 
 ## Example Usage
 
