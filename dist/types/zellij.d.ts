@@ -76,6 +76,27 @@ export interface ValidationResult {
     errors: string[];
     sanitized?: any;
 }
+export type WindowsMCPTransport = 'streamable-http' | 'sse';
+export interface WindowsMCPConfig {
+    transport: WindowsMCPTransport;
+    host: string;
+    port: number;
+    authKey?: string;
+    ipAllowlist?: string;
+    certFile?: string;
+    keyFile?: string;
+    installAsTask?: boolean;
+}
+export interface WindowsMCPStatus {
+    running: boolean;
+    pid?: number;
+    host: string;
+    port: number;
+    transport: WindowsMCPTransport;
+    tls: boolean;
+    url: string;
+    message?: string;
+}
 export interface ZellijMetrics {
     sessionsCount: number;
     activeTabsCount: number;

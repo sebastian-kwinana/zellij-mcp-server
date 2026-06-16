@@ -16,6 +16,7 @@ import { SessionTools } from './tools/sessions.js';
 import { LayoutTools } from './tools/layouts.js';
 import { PaneTools } from './tools/panes.js';
 import { DetectionTools } from './tools/detection.js';
+import { WindowsMCPTools } from './tools/windows-mcp.js';
 
 // Import utilities
 import { Validator } from './utils/validator.js';
@@ -979,6 +980,80 @@ class ZellijMCPServer {
             required: [],
           },
         },
+
+        // Windows-MCP Integration Tools (Windows hosts only)
+        {
+          name: 'zellij_windows_mcp_setup',
+          description:
+            'Windows only. One-shot setup of the Windows-MCP server: install mkcert (scoop -> winget -> choco -> openssl fallback), generate locally-trusted TLS certs + an auth key, then launch over secure streamable-http. Runs the PowerShell integration non-interactively.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              transport: { type: 'string', enum: ['streamable-http', 'sse'], description: 'Transport (default: streamable-http)' },
+              host: { type: 'string', description: 'Bind host (default: 127.0.0.1)' },
+              port: { type: 'number', description: 'Bind port (default: 8000)' },
+              force: { type: 'boolean', description: 'Regenerate cert/auth key even if already present' },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'zellij_windows_mcp_launch',
+          description:
+            'Windows only. Idempotently launch the Windows-MCP server once (single instance) over streamable-http with TLS. No-ops if already running.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              transport: { type: 'string', enum: ['streamable-http', 'sse'], description: 'Transport (default: streamable-http)' },
+              host: { type: 'string', description: 'Bind host (default: 127.0.0.1)' },
+              port: { type: 'number', description: 'Bind port (default: 8000)' },
+              auth_key: { type: 'string', description: 'Optional bearer token override' },
+              ip_allowlist: { type: 'string', description: 'Optional comma-separated IP/CIDR allowlist' },
+              cert_file: { type: 'string', description: 'Optional explicit TLS certificate path' },
+              key_file: { type: 'string', description: 'Optional explicit TLS private key path' },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'zellij_windows_mcp_status',
+          description: 'Windows only. Report whether the Windows-MCP server is running, its PID, and its URL.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              host: { type: 'string', description: 'Bind host (default: 127.0.0.1)' },
+              port: { type: 'number', description: 'Bind port (default: 8000)' },
+              transport: { type: 'string', enum: ['streamable-http', 'sse'], description: 'Transport (default: streamable-http)' },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'zellij_windows_mcp_stop',
+          description: 'Windows only. Stop the Windows-MCP server previously started by this integration.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              host: { type: 'string', description: 'Bind host (default: 127.0.0.1)' },
+              port: { type: 'number', description: 'Bind port (default: 8000)' },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'zellij_windows_mcp_install_task',
+          description: 'Windows only. Register Windows-MCP as a persistent scheduled task (windows-mcp install) that starts at login.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              transport: { type: 'string', enum: ['streamable-http', 'sse'], description: 'Transport (default: streamable-http)' },
+              host: { type: 'string', description: 'Bind host (default: 127.0.0.1)' },
+              port: { type: 'number', description: 'Bind port (default: 8000)' },
+              force: { type: 'boolean', description: 'Reinstall even if already installed' },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -1238,6 +1313,43 @@ class ZellijMCPServer {
             );
           case 'zellij_cleanup_detection':
             return await DetectionTools.cleanupDetection();
+
+          // Windows-MCP Integration
+          case 'zellij_windows_mcp_setup':
+            return await WindowsMCPTools.setup({
+              transport: args?.transport as 'streamable-http' | 'sse',
+              host: args?.host as string,
+              port: args?.port as number,
+              force: args?.force as boolean,
+            });
+          case 'zellij_windows_mcp_launch':
+            return await WindowsMCPTools.launch({
+              transport: args?.transport as 'streamable-http' | 'sse',
+              host: args?.host as string,
+              port: args?.port as number,
+              authKey: args?.auth_key as string,
+              ipAllowlist: args?.ip_allowlist as string,
+              certFile: args?.cert_file as string,
+              keyFile: args?.key_file as string,
+            });
+          case 'zellij_windows_mcp_status':
+            return await WindowsMCPTools.status({
+              host: args?.host as string,
+              port: args?.port as number,
+              transport: args?.transport as 'streamable-http' | 'sse',
+            });
+          case 'zellij_windows_mcp_stop':
+            return await WindowsMCPTools.stop({
+              host: args?.host as string,
+              port: args?.port as number,
+            });
+          case 'zellij_windows_mcp_install_task':
+            return await WindowsMCPTools.installTask({
+              transport: args?.transport as 'streamable-http' | 'sse',
+              host: args?.host as string,
+              port: args?.port as number,
+              force: args?.force as boolean,
+            });
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

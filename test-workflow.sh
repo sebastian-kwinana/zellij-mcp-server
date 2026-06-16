@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Resolve paths relative to this script so the suite is portable.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "🧪 Testing LLM Completion Detection System"
 echo "=========================================="
 
@@ -40,14 +43,14 @@ run_test() {
 # Test 1: Basic LLM simulation
 test_basic_simulation() {
     echo "Running basic 2-second LLM simulation..."
-    timeout 10s /home/jordan/zellij-mcp-server/test-detection.js 2000 "Basic test response"
+    timeout 10s "$SCRIPT_DIR/test-detection.js" 2000 "Basic test response"
     return $?
 }
 
 # Test 2: Timeout handling
 test_timeout_handling() {
     echo "Testing timeout handling (should timeout after 3 seconds)..."
-    if timeout 3s /home/jordan/zellij-mcp-server/test-detection.js 5000 "Long response" 2>/dev/null; then
+    if timeout 3s "$SCRIPT_DIR/test-detection.js" 5000 "Long response" 2>/dev/null; then
         # Should not reach here
         return 1
     else
@@ -59,7 +62,7 @@ test_timeout_handling() {
 # Test 3: Signal handling
 test_signal_handling() {
     echo "Testing signal handling..."
-    /home/jordan/zellij-mcp-server/test-detection.js 10000 "Signal test" &
+    "$SCRIPT_DIR/test-detection.js" 10000 "Signal test" &
     local pid=$!
     sleep 1
     kill -TERM $pid
@@ -132,11 +135,11 @@ test_concurrent_execution() {
     echo "Testing concurrent execution..."
     
     # Start multiple background processes
-    /home/jordan/zellij-mcp-server/test-detection.js 1000 "Process 1" &
+    "$SCRIPT_DIR/test-detection.js" 1000 "Process 1" &
     local pid1=$!
-    /home/jordan/zellij-mcp-server/test-detection.js 1500 "Process 2" &
+    "$SCRIPT_DIR/test-detection.js" 1500 "Process 2" &
     local pid2=$!
-    /home/jordan/zellij-mcp-server/test-detection.js 2000 "Process 3" &
+    "$SCRIPT_DIR/test-detection.js" 2000 "Process 3" &
     local pid3=$!
     
     # Wait for all to complete
