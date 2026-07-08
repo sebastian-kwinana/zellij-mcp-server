@@ -52,16 +52,17 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 |-----------|-------:|----------------|-----------:|--------------------|
 | **Correctness** | 25% | Build passes; tool registration complete (schema + dispatch for all five tools); config precedence behaves as documented; TS↔PowerShell contract holds (param names, result marker, action set). | 4.0 | `npm test` green (validators, config precedence, contract pins); compiled output committed in sync; **not** exercised on a real Windows host in this environment. |
 | **Security** | 25% | Input validation completeness; no shell-string interpolation anywhere on the invocation path; fail-closed platform guard ordering; secure defaults (TLS, loopback, streamable-http); secrets never logged. | 4.0 | Allowlist validators + argv arrays + `ValidateSet` + upstream refusals (4 layers); guard-before-validation pinned by test; residuals: `-AuthKey` visible in process listing if used, TOCTOU window in single-instance guard. |
-| **Test coverage** | 20% | Tests exist, run, and actually assert the claimed properties; negative/injection cases present; coverage of the Windows-only path. | 3.0 | 4 test files + smoke script; injection corpus in `test/validator.test.js`; PowerShell parser gate auto-activates when PowerShell exists. Windows execution path is a manual checklist, not automated — capped at 3 until CI on `windows-latest` exists. |
+| **Test coverage** | 20% | Tests exist, run, and actually assert the claimed properties; negative/injection cases present; coverage of the Windows-only path. | 3.5 | 5 test files + smoke script; injection corpus in `test/validator.test.js`; CI now executes the full suite (incl. the PowerShell parser gate natively) on `windows-latest` per PR — observed green on run 28933079883. Held below 4 because the live launch path is still a dispatch-only probe, not an automated gate. |
 | **Documentation** | 10% | A competent stranger can set this up from docs alone; security trade-offs stated honestly; interactive-vs-automated split explained. | 4.5 | README section + full guide + HASE matrix + this rubric; verify by following WINDOWS-MCP-INTEGRATION.md cold. |
 | **Maintainability** | 10% | Matches existing repo conventions (static tool classes, Validator, ToolResponse, error types); no new runtime dependencies; clear separation TS orchestration vs PowerShell mechanics. | 4.0 | Zero new npm dependencies; conventions mirrored; one script instead of many; `dist/`-committed convention inherited (pre-existing drift risk). |
-| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 3.5 | 8 compliant / 8 partial / 2 gaps, self-rated conservatively; score reflects the gaps existing at all, not their disclosure. |
+| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 4.0 | 10 compliant / 7 partial / 1 gap after the CI, audit-fix, and vendored-`node_modules` remediations; the remaining gap (independent review) has its protocol ready and pending execution. |
 
 ### Weighted self-assessment
 
-`0.25×4.0 + 0.25×4.0 + 0.20×3.0 + 0.10×4.5 + 0.10×4.0 + 0.10×3.5 = 3.80 / 5`
+`0.25×4.0 + 0.25×4.0 + 0.20×3.5 + 0.10×4.5 + 0.10×4.0 + 0.10×4.0 = 3.95 / 5`
+*(originally 3.80; Tests and HASE re-scored per the revision note after CI was observed green)*
 
-**Confidence band**: 3.80 → **"Ship with documented follow-ups"** (see verdict table).
+**Confidence band**: 3.95 → **"Ship with documented follow-ups"** (see verdict table).
 
 | Weighted score | Verdict |
 |----------------|---------|
@@ -78,10 +79,10 @@ stabilise then promote the dispatched Windows E2E probe.
 > pipeline (`.github/workflows/ci.yml` — both-OS test matrix, audit/dist-drift/PSSA gates,
 > dispatch-only Windows E2E probe; rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md)),
 > fixed 5 `npm audit` advisories (2 high), and untracked 2,267 vendored `node_modules` files.
-> The self-scores above are deliberately **left unchanged** until the first CI runs on PR #1
-> are observed green; if green, the author's projected update is Tests 3.0→3.5 and
-> HASE 3.5→4.0, i.e. weighted ≈ **3.95** (same verdict band). Independent reviewers should
-> score what they observe, not this projection.
+> The first CI runs on PR #1 were **observed green** (Actions run 28933079883: ubuntu ✅,
+> windows ✅, quality-gates ✅, e2e correctly skipped), so the pre-declared projection has
+> been applied: Tests 3.0→3.5, HASE 3.5→4.0, weighted 3.80→**3.95** (same verdict band).
+> Independent reviewers should score what they observe, not this history.
 
 ## Known limitations declared by the author (verify these are the only ones)
 

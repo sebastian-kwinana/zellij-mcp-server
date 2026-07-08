@@ -31,7 +31,7 @@ the repository, not intent.
 | 7 | **Idempotency / single instance** | 🟡 | Launch-once enforced by port-listen check **and** PID lockfile (`test/powershell-contract.test.js` pins both). | Check-then-act has an inherent TOCTOU window between port check and process start; acceptable for a single-operator workstation, would need a named mutex for multi-agent concurrency. |
 | 8 | **Auditability / observability** | 🟡 | Server stdout/stderr redirected to log files under `%LOCALAPPDATA%\zellij-mcp`; machine-readable JSON status lines; status tool reports PID/URL. | No structured audit log of who launched/stopped; no log rotation. |
 | 9 | **Verification & test coverage** | 🟡 | `npm test`: unit tests for validators, config precedence, platform guard, TS↔PowerShell contract; PowerShell language-parser gate (runs when a PowerShell binary is present); standalone smoke script (`test-windows-mcp.js`); CI now executes the full suite on `windows-latest` per PR, and a dispatch-only live E2E probe exists (`e2e-windows` in `.github/workflows/ci.yml`). | The live launch path (cert generation, TLS serve) remains a manually-triggered probe, not a blocking gate. Remediation: promote the probe once it proves stable across ~5 dispatched runs. |
-| 10 | **Continuous integration** | 🟡 | GitHub Actions pipeline added (`.github/workflows/ci.yml`): build + full test suite on `ubuntu-latest` **and** `windows-latest`, dependency audit gate (high/critical), `dist/` drift gate, PSScriptAnalyzer Error-severity gate, dispatch-only Windows E2E probe. Design rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md). Every blocking step was executed successfully in the authoring environment before shipping. | Promote to ✅ once the first runs on PR #1 are observed green (rated conservatively until CI has executed on GitHub's own runners). |
+| 10 | **Continuous integration** | ✅ | GitHub Actions pipeline (`.github/workflows/ci.yml`): build + full test suite on `ubuntu-latest` **and** `windows-latest`, dependency audit gate (high/critical), `dist/` drift gate, PSScriptAnalyzer Error-severity gate, dispatch-only Windows E2E probe. Design rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md). First execution observed green on PR #1 (Actions run 28933079883: both OS legs + quality gates passed; e2e correctly skipped on PR events). | Live E2E remains a dispatch-only probe (tracked under #9). |
 | 11 | **Supply-chain integrity** | 🟡 | Single runtime dependency (`@modelcontextprotocol/sdk`) with committed lockfile; `npm audit` clean (5 advisories, 2 high, fixed on this branch) and now gated in CI at high/critical; vendored `node_modules/` (2,267 files) removed from tracking — lockfile + `npm ci` is the single source of truth; reference clone of Windows-MCP is gitignored, not vendored; mkcert installed from official package-manager IDs (`FiloSottile.mkcert`); CI restricted to official pinned actions with a read-only token. | `uvx` fetches `windows-mcp` from PyPI without version pinning or hash verification; no SBOM. Remediation: pin `windows-mcp==<version>` in the script, add SBOM generation. |
 | 12 | **Cryptographic hygiene** | 🟡 | TLS via mkcert-issued, locally-trusted certs (local CA never leaves the machine); auth key generated upstream with `secrets.token_urlsafe(32)`; openssl fallback is RSA-4096. | Self-signed fallback is trust-on-first-use until manually imported; no cert rotation/expiry monitoring (mkcert default validity applies). |
 | 13 | **Error handling & typed failure** | ✅ | Typed errors (`ValidationError`/`SecurityError`/`ZellijError`) mapped to MCP error codes; the PowerShell script traps all exceptions, emits a JSON error record, and exits non-zero. | — |
@@ -46,10 +46,9 @@ the repository, not intent.
 *(Revised 2026-07-08: CI pipeline, dependency-audit fix, and vendored-`node_modules`
 removal shipped; rows 9–11 and 15 re-rated accordingly.)*
 
-- **Compliant: 9** (1–5, 13–16) — the core security posture of the change, now including
-  drift-gated reproducible builds.
-- **Partial: 8** (6–12, 17) — implemented with documented, bounded residual risk; #10 (CI)
-  is promoted to ✅ once the first runs on PR #1 are observed green.
+- **Compliant: 10** (1–5, 10, 13–16) — the core security posture of the change, plus
+  drift-gated reproducible builds and CI observed green on both OS legs.
+- **Partial: 7** (6–9, 11, 12, 17) — implemented with documented, bounded residual risk.
 - **Gap: 1** (18 independent review — protocol ready in
   [SECOND-OPINION-CST.md](SECOND-OPINION-CST.md); execution pending).
 
