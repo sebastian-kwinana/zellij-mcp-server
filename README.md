@@ -2,6 +2,7 @@
 
 A comprehensive Model Context Protocol (MCP) server for managing Zellij terminal workspace sessions. This server provides extensive tools for session management, pane operations, tab controls, plugin integration, layout management, and advanced LLM completion detection.
 
+[![CI](https://github.com/sebastian-kwinana/zellij-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/sebastian-kwinana/zellij-mcp-server/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)
@@ -253,6 +254,11 @@ Assurance artifacts for this integration:
 - [docs/CONFIDENCE-RUBRIC.md](docs/CONFIDENCE-RUBRIC.md) — weighted confidence scoring
   rubric, self-assessment, and a self-contained protocol for independent second-opinion
   review by another frontier AI model
+- [docs/CI-DECISION-RECORD.md](docs/CI-DECISION-RECORD.md) — multi-framework decision
+  analysis (MoSCoW, 8-Whys, Type-1/2 reversibility, Wardley, Cynefin, pre-mortem,
+  inversion, cost-of-delay, weighted matrix) behind the CI pipeline design
+- [docs/SECOND-OPINION-CST.md](docs/SECOND-OPINION-CST.md) — ready-to-paste conversation
+  starter for the adversarial second-opinion review, with prescribed file read order
 
 ## Example Usage
 

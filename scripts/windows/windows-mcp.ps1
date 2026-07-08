@@ -128,7 +128,7 @@ function Get-RunningPid {
 
 function Test-ServerRunning {
     # Running if either the lockfile PID is alive or the port is being listened on.
-    return ((Get-RunningPid) -ne $null) -or (Test-PortListening -TcpPort $Port)
+    return ($null -ne (Get-RunningPid)) -or (Test-PortListening -TcpPort $Port)
 }
 
 function Assert-UvxAvailable {
@@ -276,7 +276,7 @@ function Stop-WindowsMcp {
 function Get-Status {
     $pidValue = Get-RunningPid
     $listening = Test-PortListening -TcpPort $Port
-    $running = ($pidValue -ne $null) -or $listening
+    $running = ($null -ne $pidValue) -or $listening
     Write-Result @{
         action    = 'status'
         running   = $running
