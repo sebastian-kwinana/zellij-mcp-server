@@ -71,7 +71,17 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 | < 2.5 | Do not ship; rework |
 
 The declared follow-ups (in priority order) are: pin the `windows-mcp` PyPI version in the
-script, add CI (`ubuntu-latest` + `windows-latest`), automate the Windows E2E checklist.
+script, ~~add CI (`ubuntu-latest` + `windows-latest`)~~ *(done — see revision note)*,
+stabilise then promote the dispatched Windows E2E probe.
+
+> **Revision 2026-07-08**: after the original self-assessment, this branch added the CI
+> pipeline (`.github/workflows/ci.yml` — both-OS test matrix, audit/dist-drift/PSSA gates,
+> dispatch-only Windows E2E probe; rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md)),
+> fixed 5 `npm audit` advisories (2 high), and untracked 2,267 vendored `node_modules` files.
+> The self-scores above are deliberately **left unchanged** until the first CI runs on PR #1
+> are observed green; if green, the author's projected update is Tests 3.0→3.5 and
+> HASE 3.5→4.0, i.e. weighted ≈ **3.95** (same verdict band). Independent reviewers should
+> score what they observe, not this projection.
 
 ## Known limitations declared by the author (verify these are the only ones)
 
@@ -79,8 +89,10 @@ script, add CI (`ubuntu-latest` + `windows-latest`), automate the Windows E2E ch
    parser-checked and contract-pinned but not machine-executed.
 2. Single-instance guard has a TOCTOU window (port check → process start).
 3. `uvx` pulls `windows-mcp` from PyPI unpinned.
-4. Repository has no CI (pre-existing).
-5. `dist/` is committed by repo convention; drift is possible if `npm test` is skipped.
+4. ~~Repository has no CI (pre-existing).~~ CI added 2026-07-08; the live Windows E2E
+   remains a dispatch-only probe rather than a blocking gate.
+5. `dist/` is committed by repo convention; drift is now blocked by the CI `quality` job,
+   but only for changes that go through a PR.
 
 ## Required output format for the second opinion
 
