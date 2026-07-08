@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "npm run build && node --test \"test/*.test.js\"",
+    "test:integration": "node test-windows-mcp.js"
   },
   "keywords": ["mcp", "zellij", "terminal", "workspace"],
   "author": "Jordan",
