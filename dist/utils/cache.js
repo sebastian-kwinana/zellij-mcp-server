@@ -61,8 +61,10 @@ export class Cache {
 }
 // Singleton instance
 export const cache = Cache.getInstance();
-// Auto-cleanup every minute
+// Auto-cleanup every minute. unref() so this housekeeping timer never keeps
+// the process alive on its own (the stdio transport does that for the server;
+// short-lived consumers like the test runner must be able to exit).
 setInterval(() => {
     cache.cleanup();
-}, 60000);
+}, 60000).unref();
 //# sourceMappingURL=cache.js.map

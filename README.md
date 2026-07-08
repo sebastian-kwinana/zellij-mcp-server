@@ -247,6 +247,13 @@ On non-Windows hosts these tools return a clear "Windows-only" message and take 
 See [docs/WINDOWS-MCP-INTEGRATION.md](docs/WINDOWS-MCP-INTEGRATION.md) for the full setup
 guide, the interactive-vs-automated split, and configuration options.
 
+Assurance artifacts for this integration:
+- [docs/HASE-COMPLIANCE.md](docs/HASE-COMPLIANCE.md) — High Assurance Software Engineering
+  decision matrix (principle-by-principle rating with evidence and residual risk)
+- [docs/CONFIDENCE-RUBRIC.md](docs/CONFIDENCE-RUBRIC.md) — weighted confidence scoring
+  rubric, self-assessment, and a self-contained protocol for independent second-opinion
+  review by another frontier AI model
+
 ## Example Usage
 
 ### Creating a Development Session
@@ -394,7 +401,16 @@ npm start
 ```
 
 ### Testing
-Run `./test-workflow.sh` to validate the detection system functionality.
+```bash
+# Unit and contract tests (builds first, then runs node --test)
+npm test
+
+# Standalone Windows-MCP integration smoke script
+npm run test:integration
+
+# LLM detection system workflow tests (bash)
+./test-workflow.sh
+```
 
 ## Contributing
 
