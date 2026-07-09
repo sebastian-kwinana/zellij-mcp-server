@@ -107,9 +107,10 @@ jobs:
       - name: Install uv
         shell: pwsh
         run: |
-          irm https://astral.sh/uv/install.ps1 | iex
-          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\.local\bin"
-      - name: Scripted setup (openssl TLS certs + auth key + launch)
+          winget install -e --id astral-sh.uv --accept-source-agreements --accept-package-agreements
+          # Ensure uv/uvx are on PATH
+          $uvPath = (Get-Command uv -ErrorAction SilentlyContinue)?.Source
+          if ($uvPath) { Add-Content $env:GITHUB_PATH (Split-Path -Parent $uvPath) }
         shell: pwsh
         # -SkipMkcertInstall: a headless CI runner cannot complete `mkcert
         # -install` (it blocks on an interactive Windows trust dialog), so this
