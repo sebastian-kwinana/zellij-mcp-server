@@ -116,13 +116,24 @@ function Test-PortListening {
 }
 
 function Get-RunningPid {
-    <# Returns the live PID from the lockfile, or $null. #>
+    <# Returns the live PID from the lockfile only if it is actually our
+       windows-mcp server, else $null. Verifying the command line guards against
+       PID reuse: if the tracked process died and the OS recycled its PID for an
+       unrelated process, we must not report (or later Stop-Process) it. #>
     if (-not (Test-Path $script:LockFile)) { return $null }
     $raw = (Get-Content $script:LockFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     if (-not $raw) { return $null }
     $pidValue = 0
     if (-not [int]::TryParse($raw.Trim(), [ref]$pidValue)) { return $null }
-    if (Get-Process -Id $pidValue -ErrorAction SilentlyContinue) { return $pidValue }
+    if (-not (Get-Process -Id $pidValue -ErrorAction SilentlyContinue)) { return $null }
+
+    # Confirm identity via the command line before trusting the PID. If the
+    # command line can't be read (access denied) or doesn't reference
+    # windows-mcp, fail closed and treat it as not-running.
+    $cim = Get-CimInstance Win32_Process -Filter "ProcessId = $pidValue" -ErrorAction SilentlyContinue
+    if ($cim -and $cim.CommandLine -and ($cim.CommandLine -like '*windows-mcp*')) {
+        return $pidValue
+    }
     return $null
 }
 

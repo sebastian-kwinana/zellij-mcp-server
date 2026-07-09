@@ -105,6 +105,21 @@ test('invalid env values are ignored in favour of the layer below', () => {
   assert.equal(cfg.transport, 'streamable-http');
 });
 
+test('partially-numeric and out-of-range env ports are ignored, not coerced', () => {
+  // parseInt used to accept "8000oops"->8000 and out-of-range "70000",
+  // the latter then crashing validatePort at invocation. Both must now fall
+  // back to the layer below (default 8000).
+  for (const bad of ['8000oops', '70000', '80', '0', '-1', ' 8000', '3.14', '0x1f90']) {
+    process.env.ZELLIJ_WINMCP_PORT = bad;
+    cache.delete(CONFIG_CACHE_KEY);
+    assert.equal(loadConfig().windowsMcp.port, 8000, `port env ${JSON.stringify(bad)} should be ignored`);
+  }
+  // A strict, in-range integer string still applies.
+  process.env.ZELLIJ_WINMCP_PORT = '9443';
+  cache.delete(CONFIG_CACHE_KEY);
+  assert.equal(loadConfig().windowsMcp.port, 9443);
+});
+
 test('per-call overrides beat env vars and config file', () => {
   process.env.ZELLIJ_WINMCP_PORT = '10443';
   cache.delete(CONFIG_CACHE_KEY);

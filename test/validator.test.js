@@ -35,6 +35,8 @@ test('validateHost rejects injection attempts and malformed values', () => {
     'a'.repeat(300),
     '',
     'host name with spaces',
+    '-Force',   // PowerShell parameter-injection: leading dash must be rejected
+    '-Action',
   ];
   for (const host of bad) {
     assert.equal(Validator.validateHost(host).valid, false, `host ${JSON.stringify(host)} should be rejected`);
@@ -57,7 +59,7 @@ test('validateCertPath accepts common certificate/key extensions', () => {
 });
 
 test('validateCertPath rejects injection, wrong extensions, and oversized paths', () => {
-  const bad = ['cert.pem; calc', 'cert.exe', 'cert', '"cert.pem"', "$env:TEMP\\x.pem'", 'a'.repeat(600) + '.pem', ''];
+  const bad = ['cert.pem; calc', 'cert.exe', 'cert', '"cert.pem"', "$env:TEMP\\x.pem'", 'a'.repeat(600) + '.pem', '', '-Force.pem'];
   for (const p of bad) {
     assert.equal(Validator.validateCertPath(p).valid, false, `path ${JSON.stringify(p)} should be rejected`);
   }
@@ -66,7 +68,7 @@ test('validateCertPath rejects injection, wrong extensions, and oversized paths'
 test('validateAuthKey enforces charset and length bounds', () => {
   assert.equal(Validator.validateAuthKey('abc123_DEF-xyz.9').valid, true);
   assert.equal(Validator.validateAuthKey('A'.repeat(256)).valid, true);
-  for (const k of ['short', 'has space key', 'key;calc', 'key"quote', 'A'.repeat(257), '']) {
+  for (const k of ['short', 'has space key', 'key;calc', 'key"quote', 'A'.repeat(257), '', '--force--', '-abcdefgh']) {
     assert.equal(Validator.validateAuthKey(k).valid, false, `key ${JSON.stringify(k)} should be rejected`);
   }
 });
