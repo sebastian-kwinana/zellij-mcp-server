@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Local reference clones (e.g. the Windows-MCP shallow clone) — reference only
+third_party/
+
+# Local runtime artifacts produced by the Windows-MCP integration
+*.log
+*.pid
+
+# OS / editor noise
+.DS_Store
