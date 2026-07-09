@@ -43,6 +43,22 @@ test('validateHost rejects injection attempts and malformed values', () => {
   }
 });
 
+test('leading-dash rejection is applied AFTER trimming, across host/cert/auth-key', () => {
+  // The guard must trim first, then check for a leading '-', so surrounding
+  // whitespace cannot smuggle a switch-like value through to PowerShell.
+  for (const v of ['  -Force', '\t-Action', ' -x.pem']) {
+    assert.equal(Validator.validateHost(v).valid, false, `host ${JSON.stringify(v)}`);
+  }
+  assert.equal(Validator.validateCertPath('  -Force.pem').valid, false, 'cert with leading space+dash');
+  assert.equal(Validator.validateAuthKey('  --force--').valid, false, 'auth key with leading space+dash');
+  // A bare dash is never a valid value.
+  assert.equal(Validator.validateHost('-').valid, false);
+  // Sanitized output is trimmed for accepted values.
+  const ok = Validator.validateHost('  localhost  ');
+  assert.equal(ok.valid, true);
+  assert.equal(ok.sanitized, 'localhost');
+});
+
 test('validateTransport allows only streamable-http and sse', () => {
   assert.equal(Validator.validateTransport('streamable-http').valid, true);
   assert.equal(Validator.validateTransport('sse').valid, true);

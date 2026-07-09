@@ -55,7 +55,16 @@ param(
 
     [switch]$NonInteractive,
 
-    [switch]$Force
+    [switch]$Force,
+
+    # Skip installing mkcert; Windows-MCP then falls back to an openssl
+    # self-signed cert. Use in headless/CI contexts where `mkcert -install`
+    # would block on an interactive Windows trust-store dialog.
+    [switch]$SkipMkcertInstall,
+
+    # Hard cap for the `windows-mcp auth --with-tls` step, after which it is
+    # killed with a diagnostic rather than hanging (default 5 min).
+    [int]$CertSetupTimeoutSec = 300
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,6 +74,8 @@ $script:ConfigDir = Join-Path $env:LOCALAPPDATA 'zellij-mcp'
 $script:LockFile  = Join-Path $script:ConfigDir 'windows-mcp.pid'
 $script:LogOut    = Join-Path $script:ConfigDir 'windows-mcp.out.log'
 $script:LogErr    = Join-Path $script:ConfigDir 'windows-mcp.err.log'
+$script:AuthLog   = Join-Path $script:ConfigDir 'windows-mcp.auth.out.log'
+$script:AuthErrLog = Join-Path $script:ConfigDir 'windows-mcp.auth.err.log'
 $script:ResultMarker = '__WINMCP_RESULT__'
 
 # ---------------------------------------------------------------------------
@@ -208,14 +219,42 @@ function Invoke-CertSetup {
         return
     }
 
+    New-Item -ItemType Directory -Force -Path $script:ConfigDir | Out-Null
     $authArgs = @('windows-mcp', 'auth', '--transport', $Transport, '--host', $BindHost, '--port', "$Port", '--with-tls')
     if ($Force) { $authArgs += '--force' }
 
+    # Run under a timeout with stdout/stderr captured to files. `mkcert -install`
+    # (invoked inside `windows-mcp auth`) can block on an interactive Windows
+    # trust-store dialog in a headless/CI session; without this guard the call
+    # hangs indefinitely. On timeout we kill it and print an actionable message.
     Write-Info "Running: uvx $($authArgs -join ' ')"
-    & uvx @authArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "windows-mcp auth failed with exit code $LASTEXITCODE"
+    Write-Info "  (timeout ${CertSetupTimeoutSec}s; logs: $script:AuthLog , $script:AuthErrLog)"
+    $proc = Start-Process -FilePath 'uvx' -ArgumentList $authArgs -PassThru -NoNewWindow `
+        -RedirectStandardOutput $script:AuthLog -RedirectStandardError $script:AuthErrLog
+
+    if (-not $proc.WaitForExit($CertSetupTimeoutSec * 1000)) {
+        # taskkill /T kills the whole tree (uvx -> python -> mkcert); it is
+        # available on all Windows and, unlike Process.Kill([bool]), works on
+        # Windows PowerShell 5.1 as well as pwsh 7.
+        try { & taskkill /PID $proc.Id /T /F 2>&1 | Out-Null } catch { Write-Warn "taskkill failed: $($_.Exception.Message)" }
+        Write-Warn "Certificate setup timed out after ${CertSetupTimeoutSec}s."
+        Write-Warn "Most likely 'mkcert -install' is blocked on an interactive Windows trust prompt in a"
+        Write-Warn "non-interactive/headless session. Remedies:"
+        Write-Warn "  - run this setup interactively once on the target machine, or"
+        Write-Warn "  - re-run with -SkipMkcertInstall to use an openssl self-signed cert instead."
+        Write-CertSetupLogTail
+        throw "windows-mcp auth timed out after ${CertSetupTimeoutSec}s (likely an interactive mkcert -install trust prompt)."
     }
+    if ($proc.ExitCode -ne 0) {
+        Write-CertSetupLogTail
+        throw "windows-mcp auth failed with exit code $($proc.ExitCode). See $script:AuthErrLog"
+    }
+    Write-Info "Certificate + auth key configured (log: $script:AuthLog)."
+}
+
+function Write-CertSetupLogTail {
+    if (Test-Path $script:AuthLog)    { Write-Info "--- auth stdout (tail) ---"; Get-Content $script:AuthLog -Tail 20 -ErrorAction SilentlyContinue }
+    if (Test-Path $script:AuthErrLog) { Write-Info "--- auth stderr (tail) ---"; Get-Content $script:AuthErrLog -Tail 20 -ErrorAction SilentlyContinue }
 }
 
 # ---------------------------------------------------------------------------
@@ -319,7 +358,11 @@ try {
     switch ($Action) {
         'setup' {
             if (-not (Assert-UvxAvailable)) { throw 'uvx is required. Install uv first, then re-run setup.' }
-            Install-Mkcert | Out-Null
+            if ($SkipMkcertInstall) {
+                Write-Info 'Skipping mkcert install (-SkipMkcertInstall); windows-mcp will use an openssl self-signed cert.'
+            } else {
+                Install-Mkcert | Out-Null
+            }
             Invoke-CertSetup
             Start-WindowsMcp
         }
