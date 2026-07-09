@@ -89,12 +89,15 @@ jobs:
   # relaunch -> stop. Promote toward required status only after it proves stable.
   e2e-windows:
     name: e2e-windows (dispatch-only probe)
-    # NOTE: this `|| github.ref_name == ...` clause lives ONLY on the throwaway
-    # review-vehicle branch (claude/windows-mcp-review), so the live probe runs
-    # here to extract real Windows validation before this PR is closed. It is
-    # deliberately NOT cherry-picked to the primary branch, where the probe stays
-    # dispatch-only (per docs/CI-DECISION-RECORD.md). Safe-to-fail: never a gate.
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'claude/windows-mcp-review'
+    # NOTE: this extra clause lives ONLY on the throwaway review-vehicle branch
+    # (claude/windows-mcp-review), so the live probe runs here to extract real
+    # Windows validation before this PR is closed. It is deliberately NOT
+    # cherry-picked to the primary branch, where the probe stays dispatch-only
+    # (per docs/CI-DECISION-RECORD.md). Safe-to-fail: never a gate.
+    # github.head_ref is the PR source branch (set on pull_request events); a push
+    # to a PR branch fires pull_request, not push (our push trigger is main only),
+    # so github.ref_name would be "<n>/merge" here — head_ref is what matches.
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'claude/windows-mcp-review'
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
