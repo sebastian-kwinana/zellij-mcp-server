@@ -72,6 +72,10 @@ test('cert setup is headless-safe: bounded, logged, and has an openssl escape ha
     'a -SkipMkcertInstall escape hatch (openssl fallback) must exist for headless use');
   assert.ok(script.includes('taskkill'),
     'a timed-out cert-setup process tree must be force-killed (taskkill /T)');
+  // Lesson: windows-mcp prints Unicode (U+2192) via click.echo; captured stdout
+  // defaults to cp1252 on Windows and crashes. Force Python UTF-8 mode.
+  assert.ok(script.includes('PYTHONUTF8') && script.includes('PYTHONIOENCODING'),
+    'child Python must run in UTF-8 mode so captured Unicode output does not crash');
 });
 
 test('PowerShell language parser reports no syntax errors (when pwsh/powershell available)', (t) => {
