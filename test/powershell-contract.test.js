@@ -57,6 +57,23 @@ test('mkcert install follows the scoop -> winget -> choco fallback chain', () =>
   assert.ok(scoop < winget && winget < choco, 'fallback order must be scoop, then winget, then choco');
 });
 
+test('cert setup is headless-safe: bounded, logged, and has an openssl escape hatch', () => {
+  // Lesson (2026-07-09): `mkcert -install` inside `windows-mcp auth --with-tls`
+  // blocks on an interactive Windows trust dialog in headless/CI sessions. The
+  // script must not hang there — it must time out, log to file, and offer a way
+  // to bypass mkcert. Pin each safeguard so it cannot silently regress.
+  assert.ok(/WaitForExit\(\s*\$?CertSetupTimeoutSec/.test(script) || script.includes('WaitForExit'),
+    'cert setup must run under a timeout (WaitForExit), not an unbounded call');
+  assert.ok(script.includes('-CertSetupTimeoutSec') || script.includes('$CertSetupTimeoutSec'),
+    'a configurable cert-setup timeout must exist');
+  assert.ok(script.includes('-RedirectStandardOutput') && script.includes('AuthLog'),
+    'cert setup output must be captured to a log file');
+  assert.ok(script.includes('$SkipMkcertInstall') || script.includes('-SkipMkcertInstall'),
+    'a -SkipMkcertInstall escape hatch (openssl fallback) must exist for headless use');
+  assert.ok(script.includes('taskkill'),
+    'a timed-out cert-setup process tree must be force-killed (taskkill /T)');
+});
+
 test('PowerShell language parser reports no syntax errors (when pwsh/powershell available)', (t) => {
   const shells = ['pwsh', 'powershell.exe', '/tmp/pwsh/pwsh'];
   let shell = null;
