@@ -259,11 +259,38 @@ function Invoke-CertSetup {
         throw "windows-mcp auth failed with exit code $($proc.ExitCode). See $script:AuthErrLog"
     }
     Write-Info "Certificate + auth key configured (log: $script:AuthLog)."
+    Repair-WindowsMcpConfig
 }
 
 function Write-CertSetupLogTail {
     if (Test-Path $script:AuthLog)    { Write-Info "--- auth stdout (tail) ---"; Get-Content $script:AuthLog -Tail 20 -ErrorAction SilentlyContinue }
     if (Test-Path $script:AuthErrLog) { Write-Info "--- auth stderr (tail) ---"; Get-Content $script:AuthErrLog -Tail 20 -ErrorAction SilentlyContinue }
+}
+
+function Repair-WindowsMcpConfig {
+    # `windows-mcp auth` writes Windows cert paths into TOML *basic* strings
+    # (double-quoted) without escaping backslashes, e.g.
+    #   ssl_certfile = "C:\Users\me\.windows-mcp\cert.pem"
+    # In TOML a basic string treats `\` as an escape, so `\U` (from `\Users`) is
+    # read as a \UXXXXXXXX unicode escape and `serve` fails to parse its own
+    # config with "Invalid hex value". Rewrite only the ssl_* path lines to use
+    # forward slashes — valid in TOML and accepted by Windows file APIs.
+    # (Upstream bug surfaced by the live CI probe, 2026-07-09.) Idempotent.
+    $cfgPath = Join-Path $env:USERPROFILE '.windows-mcp\config.toml'
+    if (-not (Test-Path $cfgPath)) { return }
+    $changed = $false
+    $out = foreach ($line in (Get-Content -LiteralPath $cfgPath)) {
+        if ($line -match '^\s*(ssl_certfile|ssl_keyfile)\s*=' -and $line.Contains('\')) {
+            $changed = $true
+            $line -replace '\\', '/'
+        } else {
+            $line
+        }
+    }
+    if ($changed) {
+        Set-Content -LiteralPath $cfgPath -Value $out -Encoding utf8
+        Write-Info 'Normalised Windows cert paths in config.toml to forward slashes (TOML backslash-escape workaround).'
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -272,6 +299,7 @@ function Write-CertSetupLogTail {
 
 function Start-WindowsMcp {
     New-Item -ItemType Directory -Force -Path $script:ConfigDir | Out-Null
+    Repair-WindowsMcpConfig  # defensive: also fix config.toml when launch is run standalone
 
     if (Test-ServerRunning) {
         $existingPid = Get-RunningPid

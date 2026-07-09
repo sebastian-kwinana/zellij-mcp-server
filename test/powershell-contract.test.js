@@ -76,6 +76,11 @@ test('cert setup is headless-safe: bounded, logged, and has an openssl escape ha
   // defaults to cp1252 on Windows and crashes. Force Python UTF-8 mode.
   assert.ok(script.includes('PYTHONUTF8') && script.includes('PYTHONIOENCODING'),
     'child Python must run in UTF-8 mode so captured Unicode output does not crash');
+  // Lesson: windows-mcp writes Windows cert paths into TOML basic strings
+  // unescaped; `serve` then can't parse its own config ("Invalid hex value"
+  // from \U in \Users). The script must normalise ssl_* paths to forward slashes.
+  assert.ok(script.includes('Repair-WindowsMcpConfig') && script.includes('config.toml'),
+    'the script must repair windows-mcp config.toml backslash paths before serve');
 });
 
 test('PowerShell language parser reports no syntax errors (when pwsh/powershell available)', (t) => {
