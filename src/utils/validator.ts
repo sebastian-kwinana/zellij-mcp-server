@@ -218,14 +218,20 @@ export class Validator {
 
   static validateHost(host: string): ValidationResult {
     const errors: string[] = [];
-    if (!host || typeof host !== 'string') {
+    const trimmed = typeof host === 'string' ? host.trim() : host;
+    if (!trimmed || typeof trimmed !== 'string') {
       errors.push('Host is required and must be a string');
-    } else if (this.ARG_INJECTION.test(host)) {
+    } else if (trimmed.startsWith('-')) {
+      // A leading '-' lets PowerShell's parameter binder treat the value as a
+      // switch (e.g. -Force) instead of the -BindHost value, even though Node
+      // passes an argv array. Hostnames never start with '-' (RFC 1123).
+      errors.push('Host must not start with "-"');
+    } else if (this.ARG_INJECTION.test(trimmed)) {
       errors.push('Host contains invalid characters');
-    } else if (!/^[a-zA-Z0-9_.\-:[\]]+$/.test(host) || host.length > 255) {
+    } else if (!/^[a-zA-Z0-9_.\-:[\]]+$/.test(trimmed) || trimmed.length > 255) {
       errors.push('Host must be a valid hostname or IP address (max 255 chars)');
     }
-    return { valid: errors.length === 0, errors, sanitized: host?.trim() };
+    return { valid: errors.length === 0, errors, sanitized: trimmed };
   }
 
   static validateTransport(transport: string): ValidationResult {
@@ -241,26 +247,36 @@ export class Validator {
 
   static validateCertPath(value: string, fieldName = 'Certificate path'): ValidationResult {
     const errors: string[] = [];
-    if (!value || typeof value !== 'string') {
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    if (!trimmed || typeof trimmed !== 'string') {
       errors.push(`${fieldName} is required and must be a string`);
-    } else if (this.ARG_INJECTION.test(value)) {
+    } else if (trimmed.startsWith('-')) {
+      // Prevent a path like "-Force.pem" binding as a PowerShell switch.
+      errors.push(`${fieldName} must not start with "-"`);
+    } else if (this.ARG_INJECTION.test(trimmed)) {
       errors.push(`${fieldName} contains invalid characters`);
-    } else if (!/\.(pem|crt|cer|key)$/i.test(value)) {
+    } else if (!/\.(pem|crt|cer|key)$/i.test(trimmed)) {
       errors.push(`${fieldName} must end with .pem, .crt, .cer, or .key`);
-    } else if (value.length > 512) {
+    } else if (trimmed.length > 512) {
       errors.push(`${fieldName} is too long (max 512 characters)`);
     }
-    return { valid: errors.length === 0, errors, sanitized: value?.trim() };
+    return { valid: errors.length === 0, errors, sanitized: trimmed };
   }
 
   static validateAuthKey(key: string): ValidationResult {
     const errors: string[] = [];
-    if (typeof key !== 'string') {
+    const trimmed = typeof key === 'string' ? key.trim() : key;
+    if (typeof trimmed !== 'string') {
       errors.push('Auth key must be a string');
-    } else if (!/^[A-Za-z0-9._\-]{8,256}$/.test(key)) {
+    } else if (trimmed.startsWith('-')) {
+      // A leading '-' could bind as a PowerShell switch when forwarded as
+      // -AuthKey <value>. (URL-safe tokens may begin with '-'; on the rare
+      // occasion one does, regenerate it — failing closed is the safe choice.)
+      errors.push('Auth key must not start with "-"');
+    } else if (!/^[A-Za-z0-9._\-]{8,256}$/.test(trimmed)) {
       errors.push('Auth key must be 8-256 chars of letters, digits, dot, underscore, or hyphen');
     }
-    return { valid: errors.length === 0, errors, sanitized: key };
+    return { valid: errors.length === 0, errors, sanitized: trimmed };
   }
 
   static validateIpAllowlist(value: string): ValidationResult {

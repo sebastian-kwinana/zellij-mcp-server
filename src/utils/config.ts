@@ -60,14 +60,28 @@ function normaliseTransport(value: unknown): WindowsMCPTransport | undefined {
   return undefined;
 }
 
+/**
+ * Parse a port from an env var strictly: only a pure-integer string within the
+ * valid range applies. Partially-numeric ("8000oops"→8000) and out-of-range
+ * values are ignored in favour of the layer below, matching this module's
+ * "invalid env values are ignored" contract (and avoiding a later crash in
+ * validatePort at tool-invocation time).
+ */
+function parseEnvPort(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || !/^\d+$/.test(raw)) {
+    return fallback;
+  }
+  const port = Number(raw);
+  return port >= 1024 && port <= 65535 ? port : fallback;
+}
+
 function applyEnvOverrides(base: WindowsMCPConfig): WindowsMCPConfig {
   const env = process.env;
-  const port = env.ZELLIJ_WINMCP_PORT ? parseInt(env.ZELLIJ_WINMCP_PORT, 10) : undefined;
   return {
     ...base,
     transport: normaliseTransport(env.ZELLIJ_WINMCP_TRANSPORT) ?? base.transport,
     host: env.ZELLIJ_WINMCP_HOST ?? base.host,
-    port: port && !Number.isNaN(port) ? port : base.port,
+    port: parseEnvPort(env.ZELLIJ_WINMCP_PORT, base.port),
     authKey: env.ZELLIJ_WINMCP_AUTH_KEY ?? base.authKey,
     ipAllowlist: env.ZELLIJ_WINMCP_IP_ALLOWLIST ?? base.ipAllowlist,
     certFile: env.ZELLIJ_WINMCP_CERT_FILE ?? base.certFile,
