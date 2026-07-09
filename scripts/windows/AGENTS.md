@@ -57,6 +57,13 @@ door that invokes it via `spawn` with an **argv array**.
    with `UnicodeEncodeError`. The script sets `PYTHONUTF8=1` /
    `PYTHONIOENCODING=utf-8` before any `uvx` call. (Found by the live CI probe.)
 
+8. **Repair windows-mcp's `config.toml` before `serve`.** `windows-mcp auth`
+   writes Windows cert paths into TOML *basic* strings unescaped
+   (`ssl_certfile = "C:\Users\..."`); the `\U` in `\Users` is read as a unicode
+   escape, so `serve` can't parse its own config ("Invalid hex value") and never
+   binds. `Repair-WindowsMcpConfig` rewrites the `ssl_*` lines to forward slashes
+   (valid TOML, accepted by Windows). Upstream bug; found by the live CI probe.
+
 ## Verifying PowerShell changes
 - Parser gate: `test/powershell-contract.test.js` runs the PowerShell language
   parser when a `pwsh`/`powershell` binary is present (it is on CI runners).
