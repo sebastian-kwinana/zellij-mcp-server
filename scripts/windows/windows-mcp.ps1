@@ -70,6 +70,15 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Run child Python (uvx windows-mcp) in UTF-8 mode. windows-mcp prints Unicode
+# (e.g. "cert -> path" with a U+2192 arrow) via click.echo; when its stdout is
+# captured/redirected — as it is both here (Start-Process -RedirectStandardOutput)
+# and from the TypeScript tool layer (spawn) — Python otherwise defaults to the
+# Windows ANSI code page (cp1252) and dies with UnicodeEncodeError. Surfaced by
+# the live CI probe on 2026-07-09.
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
+
 $script:ConfigDir = Join-Path $env:LOCALAPPDATA 'zellij-mcp'
 $script:LockFile  = Join-Path $script:ConfigDir 'windows-mcp.pid'
 $script:LogOut    = Join-Path $script:ConfigDir 'windows-mcp.out.log'
