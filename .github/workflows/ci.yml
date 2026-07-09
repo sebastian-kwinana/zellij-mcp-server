@@ -83,10 +83,12 @@ jobs:
 
   # Experimental, manually-dispatched live end-to-end probe (Cynefin
   # probe-sense-respond: safe-to-fail, never blocks a PR). Exercises the real
-  # chain on a Windows runner: uv install -> mkcert fallback chain
-  # (scoop absent -> winget absent -> choco present) -> cert + auth-key
-  # generation -> single-instance TLS launch -> live HTTPS contact -> idempotent
-  # relaunch -> stop. Promote toward required status only after it proves stable.
+  # chain on a Windows runner: uv install -> openssl TLS cert + auth-key
+  # generation (headless; -SkipMkcertInstall, since mkcert -install needs an
+  # interactive trust prompt) -> single-instance TLS launch -> live HTTPS
+  # contact -> idempotent relaunch -> stop. Promote toward required status only
+  # after it proves stable. The interactive mkcert-trust path is validated by a
+  # human running `-Action setup` (see docs/WINDOWS-MCP-INTEGRATION.md).
   e2e-windows:
     name: e2e-windows (dispatch-only probe)
     # NOTE: this extra clause lives ONLY on the throwaway review-vehicle branch
@@ -107,9 +109,14 @@ jobs:
         run: |
           irm https://astral.sh/uv/install.ps1 | iex
           Add-Content $env:GITHUB_PATH "$env:USERPROFILE\.local\bin"
-      - name: Scripted setup (mkcert chain + TLS certs + auth key + launch)
+      - name: Scripted setup (openssl TLS certs + auth key + launch)
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action setup -NonInteractive
+        # -SkipMkcertInstall: a headless CI runner cannot complete `mkcert
+        # -install` (it blocks on an interactive Windows trust dialog), so this
+        # probe validates the openssl self-signed path + the full launch chain.
+        # The mkcert path is for interactive, human-run setup (see
+        # scripts/windows/windows-mcp.ps1 and docs/WINDOWS-MCP-INTEGRATION.md).
+        run: pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action setup -NonInteractive -SkipMkcertInstall
       - name: Wait for TLS endpoint and contact it
         shell: pwsh
         run: |
