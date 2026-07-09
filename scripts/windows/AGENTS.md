@@ -44,6 +44,19 @@ door that invokes it via `spawn` with an **argv array**.
    `__WINMCP_RESULT__` marker, and the `-Action` set are pinned by
    `test/powershell-contract.test.js`. Change them in lockstep or that test fails.
 
+6. **`mkcert -install` is interactive — it cannot run headless.** It pops a
+   Windows trust-store dialog; on a headless/CI session it blocks forever. The
+   cert-setup step therefore runs under a timeout (`-CertSetupTimeoutSec`) with
+   output logged to file, force-kills the tree (`taskkill /T`) on timeout, and
+   offers `-SkipMkcertInstall` to use the openssl self-signed path instead. The
+   mkcert *trust* path is for a human running `setup` interactively, once.
+
+7. **Force child Python into UTF-8.** `windows-mcp` prints Unicode (a U+2192
+   arrow) via `click.echo`; when its stdout is captured — here (Start-Process
+   redirect) or from the TS layer (`spawn`) — Python defaults to cp1252 and dies
+   with `UnicodeEncodeError`. The script sets `PYTHONUTF8=1` /
+   `PYTHONIOENCODING=utf-8` before any `uvx` call. (Found by the live CI probe.)
+
 ## Verifying PowerShell changes
 - Parser gate: `test/powershell-contract.test.js` runs the PowerShell language
   parser when a `pwsh`/`powershell` binary is present (it is on CI runners).
