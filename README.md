@@ -2,6 +2,7 @@
 
 A comprehensive Model Context Protocol (MCP) server for managing Zellij terminal workspace sessions. This server provides extensive tools for session management, pane operations, tab controls, plugin integration, layout management, and advanced LLM completion detection.
 
+[![CI](https://github.com/sebastian-kwinana/zellij-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/sebastian-kwinana/zellij-mcp-server/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)
@@ -55,6 +56,14 @@ Specialized tools for LLM workflow integration:
 - **Wrapper Scripts**: LLM completion detector wrappers
 - **Resource Cleanup**: Automated cleanup of detection resources
 
+### 🪟 Windows-MCP Integration (Windows hosts)
+Bring up [CursorTouch/Windows-MCP](https://github.com/CursorTouch/Windows-MCP) for desktop
+situational awareness when running zellij on Windows:
+- **Secure transport**: launches over `streamable-http` with locally-trusted TLS
+- **Certificate setup**: installs `mkcert` via scoop → winget → choco (openssl self-signed fallback)
+- **Single-instance launch**: idempotent "launch once" with port + PID-lockfile guards
+- **Scheduled task**: optional persistent install that starts at login
+
 ### 🛡️ Security & Performance
 Enterprise-grade security and performance features:
 - **Input Validation**: Comprehensive input sanitization and validation
@@ -72,7 +81,7 @@ Enterprise-grade security and performance features:
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/zellij-mcp-server.git
+git clone https://github.com/sebastian-kwinana/zellij-mcp-server.git
 cd zellij-mcp-server
 
 # Install dependencies
@@ -225,6 +234,35 @@ npm run dev
 | `zellij_get_cache_stats` | Get cache statistics |
 | `zellij_health_check` | Perform system health check |
 
+### Windows-MCP Integration Tools (Windows hosts only)
+
+| Tool | Description |
+|------|-------------|
+| `zellij_windows_mcp_setup` | One-shot: install mkcert, generate TLS certs + auth key, launch the server |
+| `zellij_windows_mcp_launch` | Idempotently launch Windows-MCP once over secure streamable-http |
+| `zellij_windows_mcp_status` | Report whether the server is running, its PID and URL |
+| `zellij_windows_mcp_stop` | Stop the server started by this integration |
+| `zellij_windows_mcp_install_task` | Register a persistent scheduled task (starts at login) |
+
+On non-Windows hosts these tools return a clear "Windows-only" message and take no action.
+See [docs/Guides/WINDOWS-MCP-INTEGRATION.md](docs/Guides/WINDOWS-MCP-INTEGRATION.md) for the full setup
+guide, the interactive-vs-automated split, and configuration options.
+
+Assurance artifacts for this integration:
+- [docs/Assurance/HASE-COMPLIANCE.md](docs/Assurance/HASE-COMPLIANCE.md) — High Assurance Software Engineering
+  decision matrix (principle-by-principle rating with evidence and residual risk)
+- [docs/Assurance/CONFIDENCE-RUBRIC.md](docs/Assurance/CONFIDENCE-RUBRIC.md) — weighted confidence scoring
+  rubric, self-assessment, and a self-contained protocol for independent second-opinion
+  review by another frontier AI model
+- [docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md](docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md) — multi-framework decision
+  analysis (MoSCoW, 8-Whys, Type-1/2 reversibility, Wardley, Cynefin, pre-mortem,
+  inversion, cost-of-delay, weighted matrix) behind the CI pipeline design
+- [docs/ADRs/Windows-MCP/001-pin-windows-mcp-pypi-version.md](docs/ADRs/Windows-MCP/001-pin-windows-mcp-pypi-version.md) — ADR for the upstream version pin
+- [docs/ADRs/Windows-MCP/002-serialize-launches-with-global-mutex.md](docs/ADRs/Windows-MCP/002-serialize-launches-with-global-mutex.md) — ADR for concurrent launch serialisation
+- [docs/Assurance/SECOND-OPINION-CST.md](docs/Assurance/SECOND-OPINION-CST.md) — ready-to-paste conversation
+  starter for the adversarial second-opinion review, with prescribed file read order
+- [docs/README.md](docs/README.md) — docs index and taxonomy
+
 ## Example Usage
 
 ### Creating a Development Session
@@ -372,7 +410,19 @@ npm start
 ```
 
 ### Testing
-Run `./test-workflow.sh` to validate the detection system functionality.
+CI pins **Node 22**; `npm test`'s glob-expanding `node --test` invocation requires
+Node 21+ (the package's `engines`/runtime floor is Node 18+, so use 21+ specifically
+to run the test suite locally).
+```bash
+# Unit and contract tests (builds first, then runs node --test)
+npm test
+
+# Standalone Windows-MCP integration smoke script
+npm run test:integration
+
+# LLM detection system workflow tests (bash)
+./test-workflow.sh
+```
 
 ## Contributing
 
@@ -394,4 +444,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/yourusername/zellij-mcp-server).
+For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/sebastian-kwinana/zellij-mcp-server).

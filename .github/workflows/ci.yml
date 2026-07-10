@@ -1,0 +1,141 @@
+# CI for zellij-mcp-server.
+#
+# Design rationale, alternatives considered, and the multi-framework decision
+# analysis behind this pipeline live in docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md.
+#
+# Hardening (from the pre-mortem in that record):
+#   - GITHUB_TOKEN restricted to contents: read (no write paths from CI)
+#   - only official actions/* actions, pinned to major versions
+#   - every job carries a timeout; superseded runs are cancelled
+#   - every blocking step was executed successfully in the authoring
+#     environment before being made a gate; the one step that could not be
+#     (live Windows launch) is a manually-dispatched, non-blocking probe
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: build-and-test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies (reproducible, from lockfile)
+        run: npm ci
+      - name: Build + unit/contract tests
+        # 44 tests via node --test. The PowerShell language-parser gate inside
+        # the suite activates on both OSes (pwsh ships on GitHub runners).
+        run: npm test
+      - name: Integration smoke script
+        run: npm run test:integration
+      - name: Dependency audit (blocks on high/critical)
+        run: npm audit --audit-level=high
+
+  quality:
+    name: quality-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: dist/ drift check
+        # dist/ is committed by repo convention (see Chesterton's Fence note in
+        # the decision record); this gate guarantees it can never drift from src/.
+        run: |
+          npm ci
+          npm run build
+          git diff --exit-code --stat -- dist/
+      - name: PSScriptAnalyzer (Error severity blocks; warnings reported)
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          }
+          $all = Invoke-ScriptAnalyzer -Path scripts/windows/windows-mcp.ps1
+          $all | Format-Table RuleName, Severity, Line, Message -AutoSize
+          $errs = @($all | Where-Object Severity -eq 'Error')
+          Write-Host "Findings: $($all.Count) total, $($errs.Count) at Error severity"
+          exit $errs.Count
+
+  # Experimental, manually-dispatched live end-to-end probe (Cynefin
+  # probe-sense-respond: safe-to-fail, never blocks a PR). Exercises the real
+  # chain on a Windows runner: uv install -> openssl TLS cert + auth-key
+  # generation (headless; -SkipMkcertInstall, since mkcert -install needs an
+  # interactive trust prompt) -> single-instance TLS launch -> live HTTPS
+  # contact -> idempotent relaunch -> stop. Promote toward required status only
+  # after it proves stable. The interactive mkcert-trust path is validated by a
+  # human running `-Action setup` (see docs/Guides/WINDOWS-MCP-INTEGRATION.md).
+  e2e-windows:
+    name: e2e-windows (dispatch-only probe)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv (winget; avoids executing a remote install script)
+        shell: pwsh
+        run: |
+          winget install -e --id astral-sh.uv --accept-source-agreements --accept-package-agreements
+          # winget persists PATH to the registry but not the current process, so
+          # refresh it before locating uv (a bare `Get-Command uv` right after
+          # install finds nothing), then export uv's dir for subsequent steps.
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $uv = (Get-Command uv -ErrorAction SilentlyContinue).Source
+          if (-not $uv) { throw 'uv not found on PATH after winget install' }
+          Add-Content $env:GITHUB_PATH (Split-Path -Parent $uv)
+      - name: Scripted setup (openssl TLS certs + auth key + launch)
+        shell: pwsh
+        # -SkipMkcertInstall: a headless runner cannot complete `mkcert -install`
+        # (it blocks on an interactive Windows trust dialog), so the dispatched
+        # probe validates the openssl self-signed path + full launch chain.
+        run: pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action setup -NonInteractive -SkipMkcertInstall
+      - name: Wait for TLS endpoint and contact it
+        shell: pwsh
+        run: |
+          $up = $false
+          foreach ($i in 1..60) {
+            try {
+              $c = [System.Net.Sockets.TcpClient]::new()
+              $c.Connect('127.0.0.1', 8000); $c.Close(); $up = $true; break
+            } catch { Start-Sleep -Seconds 5 }
+          }
+          if (-not $up) {
+            Get-Content "$env:LOCALAPPDATA\zellij-mcp\windows-mcp.err.log" -ErrorAction SilentlyContinue
+            throw 'server never started listening on 127.0.0.1:8000'
+          }
+          # Any HTTP status over a successful TLS handshake proves the stack:
+          # unauthenticated requests are expected to be rejected (auth key is on).
+          $resp = Invoke-WebRequest 'https://127.0.0.1:8000/mcp/' -SkipCertificateCheck -SkipHttpErrorCheck -UseBasicParsing
+          Write-Host "HTTPS reachable - status $($resp.StatusCode)"
+      - name: Idempotent relaunch must no-op (single-instance guard)
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action launch -NonInteractive
+      - name: Status, then stop
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action status
+          pwsh -NoProfile -File scripts/windows/windows-mcp.ps1 -Action stop

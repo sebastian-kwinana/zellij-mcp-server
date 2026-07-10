@@ -171,6 +171,111 @@ export class Validator {
             sanitized: value?.trim()
         };
     }
+    // ----- Windows-MCP integration validators -----
+    // These guard values that are forwarded to the PowerShell launcher and on to
+    // `windows-mcp`. Arguments are always passed as a typed argv array (never
+    // interpolated into a command string), but we still reject shell/argument
+    // metacharacters as defence in depth.
+    static ARG_INJECTION = /[;&|`$(){}<>\n\r"']/;
+    static validatePort(port) {
+        const errors = [];
+        if (typeof port !== 'number' || !Number.isInteger(port)) {
+            errors.push('Port must be an integer');
+        }
+        else if (port < 1024 || port > 65535) {
+            errors.push('Port must be between 1024 and 65535');
+        }
+        return { valid: errors.length === 0, errors, sanitized: port };
+    }
+    static validateHost(host) {
+        const errors = [];
+        const trimmed = typeof host === 'string' ? host.trim() : host;
+        if (!trimmed || typeof trimmed !== 'string') {
+            errors.push('Host is required and must be a string');
+        }
+        else if (trimmed.startsWith('-')) {
+            // A leading '-' lets PowerShell's parameter binder treat the value as a
+            // switch (e.g. -Force) instead of the -BindHost value, even though Node
+            // passes an argv array. Hostnames never start with '-' (RFC 1123).
+            errors.push('Host must not start with "-"');
+        }
+        else if (this.ARG_INJECTION.test(trimmed)) {
+            errors.push('Host contains invalid characters');
+        }
+        else if (/^[^:]+:\d+$/.test(trimmed)) {
+            // hostname/IPv4 followed by ":<digits>" is a host:port pair; the port is
+            // supplied separately, and leaving it here yields URLs like
+            // https://localhost:8000:8000/. A bare IPv6 literal (::1, fe80::1) has
+            // multiple colons and is unaffected; bracket it or pass port separately.
+            errors.push('Host must not include a port (":<n>"); pass the port separately');
+        }
+        else if (!/^[a-zA-Z0-9_.\-:[\]]+$/.test(trimmed) || trimmed.length > 255) {
+            errors.push('Host must be a valid hostname or IP address (max 255 chars)');
+        }
+        return { valid: errors.length === 0, errors, sanitized: trimmed };
+    }
+    static validateTransport(transport) {
+        const errors = [];
+        const valid = ['streamable-http', 'sse'];
+        if (!transport || typeof transport !== 'string') {
+            errors.push('Transport is required and must be a string');
+        }
+        else if (!valid.includes(transport)) {
+            errors.push(`Transport must be one of: ${valid.join(', ')}`);
+        }
+        return { valid: errors.length === 0, errors, sanitized: transport };
+    }
+    static validateCertPath(value, fieldName = 'Certificate path') {
+        const errors = [];
+        const trimmed = typeof value === 'string' ? value.trim() : value;
+        if (!trimmed || typeof trimmed !== 'string') {
+            errors.push(`${fieldName} is required and must be a string`);
+        }
+        else if (trimmed.startsWith('-')) {
+            // Prevent a path like "-Force.pem" binding as a PowerShell switch.
+            errors.push(`${fieldName} must not start with "-"`);
+        }
+        else if (this.ARG_INJECTION.test(trimmed)) {
+            errors.push(`${fieldName} contains invalid characters`);
+        }
+        else if (!/\.(pem|crt|cer|key)$/i.test(trimmed)) {
+            errors.push(`${fieldName} must end with .pem, .crt, .cer, or .key`);
+        }
+        else if (trimmed.length > 512) {
+            errors.push(`${fieldName} is too long (max 512 characters)`);
+        }
+        return { valid: errors.length === 0, errors, sanitized: trimmed };
+    }
+    static validateAuthKey(key) {
+        const errors = [];
+        const trimmed = typeof key === 'string' ? key.trim() : key;
+        if (typeof trimmed !== 'string') {
+            errors.push('Auth key must be a string');
+        }
+        else if (trimmed.startsWith('-')) {
+            // A leading '-' could bind as a PowerShell switch when forwarded as
+            // -AuthKey <value>. (URL-safe tokens may begin with '-'; on the rare
+            // occasion one does, regenerate it — failing closed is the safe choice.)
+            errors.push('Auth key must not start with "-"');
+        }
+        else if (!/^[A-Za-z0-9._\-]{8,256}$/.test(trimmed)) {
+            errors.push('Auth key must be 8-256 chars of letters, digits, dot, underscore, or hyphen');
+        }
+        return { valid: errors.length === 0, errors, sanitized: trimmed };
+    }
+    static validateIpAllowlist(value) {
+        const errors = [];
+        if (typeof value !== 'string') {
+            errors.push('IP allowlist must be a string');
+        }
+        else if (this.ARG_INJECTION.test(value)) {
+            errors.push('IP allowlist contains invalid characters');
+        }
+        else if (!/^[0-9a-fA-F:.\/, ]+$/.test(value) || value.length > 1024) {
+            errors.push('IP allowlist must be comma-separated IPv4/IPv6 addresses or CIDR ranges');
+        }
+        return { valid: errors.length === 0, errors, sanitized: value?.trim() };
+    }
     // Rate limiting helper
     static commandCounts = new Map();
     static checkRateLimit(identifier, maxRequests = 100, windowMs = 60000) {
