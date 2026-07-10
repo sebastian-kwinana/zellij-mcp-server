@@ -18,11 +18,21 @@ test('validatePort rejects privileged, out-of-range, and non-integer ports', () 
   }
 });
 
-test('validateHost accepts hostnames and IP literals', () => {
-  for (const host of ['127.0.0.1', 'localhost', 'desktop-01.corp.local', '::1', '[::1]', '192.168.1.5']) {
+test('validateHost accepts hostnames and IP literals (incl. IPv6)', () => {
+  for (const host of ['127.0.0.1', 'localhost', 'desktop-01.corp.local', '::1', '[::1]', 'fe80::1', '2001:db8::1', '192.168.1.5']) {
     const r = Validator.validateHost(host);
     assert.equal(r.valid, true, `host ${host} should be valid: ${r.errors}`);
   }
+});
+
+test('validateHost rejects host:port pairs (port is supplied separately)', () => {
+  // A single colon before a numeric tail is host:port, which yields malformed
+  // URLs like https://localhost:8000:8000/. Bare IPv6 (multiple colons) is fine.
+  for (const host of ['localhost:8000', '127.0.0.1:8000', 'host.example:443']) {
+    assert.equal(Validator.validateHost(host).valid, false, `host ${JSON.stringify(host)} should be rejected`);
+  }
+  assert.equal(Validator.validateHost('::1').valid, true, 'bare IPv6 ::1 unaffected');
+  assert.equal(Validator.validateHost('fe80::1').valid, true, 'bare IPv6 fe80::1 unaffected');
 });
 
 test('validateHost rejects injection attempts and malformed values', () => {

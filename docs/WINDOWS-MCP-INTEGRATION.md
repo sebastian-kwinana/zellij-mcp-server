@@ -59,13 +59,16 @@ This will, prompting for confirmation along the way:
 
 From an MCP client the tools always run the script **non-interactively**:
 
+The TS layer always includes `-NonInteractive` for every action (an LLM-driven
+call has no TTY):
+
 | Tool | Action |
 |------|--------|
 | `zellij_windows_mcp_setup` | `-Action setup -NonInteractive` |
 | `zellij_windows_mcp_launch` | `-Action launch -NonInteractive` |
-| `zellij_windows_mcp_status` | `-Action status` |
-| `zellij_windows_mcp_stop` | `-Action stop` |
-| `zellij_windows_mcp_install_task` | `-Action install-task` |
+| `zellij_windows_mcp_status` | `-Action status -NonInteractive` |
+| `zellij_windows_mcp_stop` | `-Action stop -NonInteractive` |
+| `zellij_windows_mcp_install_task` | `-Action install-task -NonInteractive` |
 
 "Launch once" is enforced by the script: it checks both whether the port is already being
 listened on (`Get-NetTCPConnection`) and a PID lockfile at
