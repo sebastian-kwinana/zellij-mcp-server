@@ -23,4 +23,5 @@ export declare class WindowsMCPTools {
     private static invoke;
     private static describeUrl;
 }
+export declare function parseResult(stdout: string): any | null;
 //# sourceMappingURL=windows-mcp.d.ts.map

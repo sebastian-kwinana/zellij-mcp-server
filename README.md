@@ -407,6 +407,9 @@ npm start
 ```
 
 ### Testing
+CI pins **Node 22**; `npm test`'s glob-expanding `node --test` invocation requires
+Node 21+ (the package's `engines`/runtime floor is Node 18+, so use 21+ specifically
+to run the test suite locally).
 ```bash
 # Unit and contract tests (builds first, then runs node --test)
 npm test

@@ -9,10 +9,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { WindowsMCPTools } from '../dist/tools/windows-mcp.js';
+import { WindowsMCPTools, parseResult } from '../dist/tools/windows-mcp.js';
 
 const onWindows = os.platform() === 'win32';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,4 +44,49 @@ test('guard runs before any argument processing (no throw on bad input off-Windo
 test('the PowerShell integration script ships at the path the tools resolve', () => {
   const script = path.join(repoRoot, 'scripts', 'windows', 'windows-mcp.ps1');
   assert.ok(existsSync(script), `expected ${script} to exist`);
+});
+
+test('parseResult only matches a line that STARTS WITH the marker', () => {
+  const good = 'other log line\n__WINMCP_RESULT__ {"running":true,"pid":123}\n';
+  assert.deepEqual(parseResult(good), { running: true, pid: 123 });
+
+  // Install-Task streams `uvx windows-mcp install` output directly; unlike
+  // auth/serve (redirected to files), a substring anywhere on the line must
+  // NOT be mistaken for the real result line.
+  const spoofed = 'note: see __WINMCP_RESULT__ in the docs for the JSON schema\n';
+  assert.equal(parseResult(spoofed), null, 'a marker embedded mid-line must not be parsed as a result');
+
+  // Leading/trailing whitespace around a genuine marker line is tolerated.
+  const padded = '  __WINMCP_RESULT__ {"running":false}  \n';
+  assert.deepEqual(parseResult(padded), { running: false });
+
+  assert.equal(parseResult('no marker here at all'), null);
+});
+
+test('parseResult picks the LAST matching line when multiple are present', () => {
+  const multi = '__WINMCP_RESULT__ {"pid":1}\nsome other output\n__WINMCP_RESULT__ {"pid":2}\n';
+  assert.deepEqual(parseResult(multi), { pid: 2 });
+});
+
+test("setup()'s timeout has real headroom over the PowerShell script's own cert-setup budget", () => {
+  // The PS script's own -CertSetupTimeoutSec defaults to 300s (300_000ms) for
+  // the cert step ALONE, before mkcert package-manager install attempts and
+  // the launch+readiness wait are even accounted for. The TS-side timeout for
+  // setup() must safely exceed that inner budget, not merely match it — a
+  // 1:1 match risks the TS layer killing PowerShell mid-cleanup.
+  const script = readFileSync(path.join(repoRoot, 'scripts', 'windows', 'windows-mcp.ps1'), 'utf8');
+  const match = script.match(/\[int\]\$CertSetupTimeoutSec\s*=\s*(\d+)/);
+  assert.ok(match, 'expected to find the PS-side default $CertSetupTimeoutSec');
+  const psInnerBudgetMs = Number(match[1]) * 1000;
+
+  const src = readFileSync(path.join(repoRoot, 'src', 'tools', 'windows-mcp.ts'), 'utf8');
+  const tsMatch = src.match(/return this\.run\('setup', opts, ([\d_]+)\)/);
+  assert.ok(tsMatch, "expected to find setup()'s TS-side timeout");
+  const tsTimeoutMs = Number(tsMatch[1].replace(/_/g, ''));
+
+  assert.ok(
+    tsTimeoutMs >= psInnerBudgetMs + 60_000,
+    `TS setup() timeout (${tsTimeoutMs}ms) must exceed the PS cert-setup budget ` +
+      `(${psInnerBudgetMs}ms) by at least 60s of headroom for mkcert install + launch + readiness`
+  );
 });

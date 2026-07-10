@@ -39,7 +39,14 @@ export class WindowsMCPTools {
   // ----- public tool methods -----
 
   static async setup(opts: WindowsMCPToolOptions = {}): Promise<ToolResponse> {
-    return this.run('setup', opts, 300_000);
+    // The PowerShell script's own cert-setup step already budgets up to 300s
+    // (-CertSetupTimeoutSec default) BEFORE mkcert package-manager install
+    // attempts (scoop/winget/choco) and the subsequent launch + readiness wait
+    // (~20s) are even accounted for. A TS-side timeout equal to that inner
+    // budget could kill the script mid-setup, right as PowerShell's own
+    // timeout/cleanup logic is trying to run. Budget generous headroom above
+    // the worst-case PS-side total instead of matching it 1:1.
+    return this.run('setup', opts, 600_000);
   }
 
   static async launch(opts: WindowsMCPToolOptions = {}): Promise<ToolResponse> {
@@ -202,7 +209,20 @@ export class WindowsMCPTools {
       const child = spawn(shell, args, { windowsHide: true });
       let stdout = '';
       let stderr = '';
-      const timer = setTimeout(() => child.kill(), timeoutMs);
+      const timer = setTimeout(() => {
+        // child.kill() only signals the immediate PowerShell process; on
+        // Windows it does not terminate its descendants (uvx -> python ->
+        // mkcert/windows-mcp). Use taskkill /T to take the whole tree, so a
+        // TS-side timeout can never leave an orphaned grandchild running.
+        if (child.pid) {
+          spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }).on(
+            'error',
+            () => child.kill()
+          );
+        } else {
+          child.kill();
+        }
+      }, timeoutMs);
 
       child.stdout.on('data', (d) => (stdout += d.toString()));
       child.stderr.on('data', (d) => (stderr += d.toString()));
@@ -229,13 +249,19 @@ function assertValid(result: { valid: boolean; errors: string[] }, field: string
   }
 }
 
-function parseResult(stdout: string): any | null {
+export function parseResult(stdout: string): any | null {
   const lines = stdout.split(/\r?\n/);
   for (let i = lines.length - 1; i >= 0; i--) {
-    const idx = lines[i].indexOf(RESULT_MARKER);
-    if (idx !== -1) {
+    // Write-Result always emits the marker as the first token of its own
+    // Write-Host line. Require the (trimmed) line to START WITH the marker,
+    // not merely contain it anywhere — Install-Task streams `uvx windows-mcp
+    // install` output directly (unlike auth/serve, which redirect to files),
+    // so a substring match could misparse unrelated third-party output that
+    // happens to contain the marker text.
+    const trimmedLine = lines[i].trim();
+    if (trimmedLine.startsWith(RESULT_MARKER)) {
       try {
-        return JSON.parse(lines[i].slice(idx + RESULT_MARKER.length).trim());
+        return JSON.parse(trimmedLine.slice(RESULT_MARKER.length).trim());
       } catch {
         return null;
       }
