@@ -55,7 +55,7 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 | **Test coverage** | 20% | Tests exist, run, and actually assert the claimed properties; negative/injection cases present; coverage of the Windows-only path. | 4.5 | 44 tests; injection corpus incl. IPv6/host:port; the live E2E probe achieved a **complete green run** on real Windows (cert→auth→launch→listening→HTTPS→idempotent relaunch→stop), and found+drove fixes for 3 real bugs unit tests could not reach. Held just below 5 because it's a dispatched probe, not yet a required gate, and only a handful of green runs exist so far. |
 | **Documentation** | 10% | A competent stranger can set this up from docs alone; security trade-offs stated honestly; interactive-vs-automated split explained. | 4.5 | README section + full guide + HASE matrix + this rubric; verify by following WINDOWS-MCP-INTEGRATION.md cold. |
 | **Maintainability** | 10% | Matches existing repo conventions (static tool classes, Validator, ToolResponse, error types); no new runtime dependencies; clear separation TS orchestration vs PowerShell mechanics. | 4.0 | Zero new npm dependencies; conventions mirrored; one script instead of many; `dist/`-committed convention inherited (pre-existing drift risk). |
-| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 4.5 | 13 compliant / 4 partial / 1 gap after the mutex fix, version pin, and live-probe validation; the remaining gap (independent review) has its protocol ready and pending execution. |
+| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 4.5 | 13 compliant / 5 partial / 0 gaps after the mutex fix, version pin, live-probe validation, and the **executed** independent second-opinion review (2026-07-10, Gemini 3.1 Pro — see Second opinions below); #18 is Partial only for that review's two documented protocol deviations. |
 
 ### Weighted self-assessment
 
@@ -71,7 +71,7 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 | 2.5 – 3.49 | Ship only behind a flag / to a staging branch |
 | < 2.5 | Do not ship; rework |
 
-The declared follow-ups (in priority order) are: complete the independent second-opinion review, add an SBOM / stronger artefact-integrity story for the `windows-mcp` PyPI package, and accumulate further green dispatched-probe runs before considering promotion toward a required (blocking) gate.
+The declared follow-ups (in priority order) are: ~~complete the independent second-opinion review~~ *(executed 2026-07-10 — see Second opinions below)*, add an SBOM / stronger artefact-integrity story for the `windows-mcp` PyPI package, accumulate further green dispatched-probe runs before considering promotion toward a required (blocking) gate, and (optional) a future independent pass that exercises this rubric's numeric scoring protocol, which the executed review did not.
 
 > **Revision 2026-07-08**: this branch added the CI pipeline (`.github/workflows/ci.yml` —
 > both-OS test matrix, audit/dist-drift/PSSA gates, dispatch-only Windows E2E probe;
@@ -119,4 +119,45 @@ Append the completed review to this file under `## Second opinions`.
 
 ## Second opinions
 
-_None recorded yet. The rubric is ready for independent scoring._
+### Independent review — Gemini 3.1 Pro, Google (via GitHub Copilot Agent), 2026-07-10
+
+**Full review text**: [docs/Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md](../Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md)
+(an AI-to-AI SitRep under the operator's KEPEK/CAMSO-Core framework; the CST protocol in
+[SECOND-OPINION-CST.md](SECOND-OPINION-CST.md) was the seed, enhanced by the operator with
+private framework specifications). Subject: PR #1 at commit `8646787`.
+
+**Protocol conformance — recorded faithfully, not retrofitted:**
+- ✅ Independent AISP (Google), distinct from the Anthropic author and the OpenAI-backed
+  Copilot code reviews. Adversarial stance genuinely exercised: it *rejected* two of the
+  author's documented risk-acceptances rather than deferring to them.
+- ❌ Did **not** produce the six-dimension numeric scores, weighted total, or verdict this
+  rubric's template requires; no explicit ≥5-attempt refutation log with file:line
+  citations was recorded.
+- ⚠️ The reviewer also **authored its own remediations** in the same session
+  (reviewer-becomes-author), which this rubric's independence model did not anticipate.
+
+**Material disagreements with the self-assessment (both upheld on the merits):**
+1. **Single-instance TOCTOU** — the author had accepted it as residual risk "for a
+   single-operator workstation"; the reviewer rejected that framing (multi-agent
+   concurrency is the normal case for an agent-facing tool) and implemented a
+   `Global\ZellijWindowsMCP` mutex serialising the check-then-launch critical section.
+2. **Unpinned PyPI dependency** — listed by the author as follow-up #1 but never acted
+   on; the reviewer pinned all `uvx` invocations to `windows-mcp==0.8.2`.
+
+**Counter-review of the reviewer's own remediations** (Claude, original author,
+2026-07-10, since the reviewer-authored code cannot vouch for itself): mutex
+implementation verified correct (release-only-when-owned, `Dispose` always, .NET
+`AbandonedMutexException` ownership-transfer semantics honoured, lockfile written inside
+the hold, documented 30 s fail-open with post-timeout re-check); pin `0.8.2` verified as
+PyPI latest, as the version in the June reference clone the CLI contract was originally
+read from, and as what the unpinned green live probe installed; 44/44 tests, PowerShell
+parser + PSScriptAnalyzer clean, dist drift zero, no stale links after the docs
+taxonomy move; live E2E re-validation of the mutex+pin build triggered on the PR #4
+branch.
+
+**Effect on scores**: self-assessment table unchanged at weighted **4.33** ("ship with
+documented follow-ups") — the review found no defect in the scored dimensions that the
+prior review cycles had not already driven out; its two upheld findings were promptly
+remediated and are reflected in the HASE row updates (matrix now 13 ✅ / 5 🟡 / 0 ❌).
+A future independent pass exercising this rubric's numeric scoring remains open as an
+optional follow-up.

@@ -39,7 +39,7 @@ the repository, not intent.
 | 15 | **Reproducible builds** | ✅ | Deterministic `tsc` build; lockfile committed; CI `quality` job rebuilds from a cold `npm ci` and fails on any `git diff` in `dist/` — the committed-`dist/` convention can no longer drift from `src/`. | — |
 | 16 | **Rate limiting / DoS resistance** | ✅ | All five tools inherit the server-wide per-tool rate limiter (50 req/min, `src/index.ts`); script invocations carry hard timeouts (30 s–300 s). | — |
 | 17 | **Secrets handling** | 🟡 | Auth key accepted via env var (`ZELLIJ_WINMCP_AUTH_KEY`) or upstream `config.toml`; never logged by our code; validated charset prevents log-breaking values. | Passing `-AuthKey` on a command line is visible to local process listing for the script's lifetime; prefer the upstream config-file path (default flow) — documented. |
-| 18 | **Formal methods / independent review** | ❌→🟡 | No formal verification (out of proportion for this component). Independent review protocol prepared: [CONFIDENCE-RUBRIC.md](CONFIDENCE-RUBRIC.md) is self-contained for scoring by a second, independent frontier model from a different provider. | Complete the second-opinion review and record its scores alongside the self-assessment. |
+| 18 | **Formal methods / independent review** | 🟡 | No formal verification (out of proportion for this component). **Independent adversarial review EXECUTED 2026-07-10** by Google Gemini 3.1 Pro (a third AISP, distinct from the Anthropic author and the OpenAI-backed Copilot code reviews) via a GitHub Copilot Agent session seeded with the [SECOND-OPINION-CST.md](SECOND-OPINION-CST.md) protocol; recorded in [the adversarial SitRep v2](../Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md). It overturned two prior risk-acceptances (single-instance TOCTOU; unpinned PyPI dependency), pushed back on both prior AI reviewers, and its remediations (global mutex, `windows-mcp==0.8.2` pin, concurrency docs) were in turn counter-reviewed and empirically verified by the original author (44/44 tests, PSSA clean, pin confirmed against PyPI and the reference clone). | Partial rather than Compliant for two documented deviations: the reviewer did not exercise the rubric's numeric scoring protocol, and it authored its own remediations in the same session (mitigated by the cross-model counter-review). Details in the rubric's Second opinions section. |
 
 ## Summary
 
@@ -53,12 +53,19 @@ implemented following the adversarial SitRep v2 (`../Provenance/Windows-MCP/2026
 - **Compliant: 13** (1–5, 7, 9, 10, 11, 13–16) — core security posture, mutex-guarded
   single-instance launch, pinned supply chain, drift-gated reproducible builds, and
   both static + live-runner verification.
-- **Partial: 4** (6, 8, 12, 17) — implemented with documented, bounded residual risk.
-- **Gap: 1** (18 independent review — protocol ready in
-  [SECOND-OPINION-CST.md](SECOND-OPINION-CST.md); execution pending).
+- **Partial: 5** (6, 8, 12, 17, 18) — implemented with documented, bounded residual risk;
+  #18's independent adversarial review was **executed 2026-07-10** (Gemini 3.1 Pro; see
+  the row and the rubric's Second opinions section) and is Partial only for its two
+  documented protocol deviations.
+- **Gap: 0.**
 
 **Overall judgement**: the integration follows secure-by-default, validated-input,
 fail-closed design, is regression-tested on every push on both target OS families, its
-build artefacts are drift-gated, and its live launch chain has now been exercised
-end-to-end on real Windows — not merely reasoned about. Remaining investments in
-effort-to-assurance order: **complete the independent second-opinion review → add an SBOM / stronger artefact-integrity story for the `windows-mcp` PyPI package → accumulate further green dispatched-probe runs before considering promotion toward a blocking gate**.
+build artefacts are drift-gated, its live launch chain has been exercised end-to-end on
+real Windows, and it has now been adversarially reviewed by three distinct frontier-model
+lineages (Anthropic author, OpenAI-backed Copilot code review, Google Gemini second
+opinion) with every accepted finding remediated and counter-verified. Remaining
+investments in effort-to-assurance order: **add an SBOM / stronger artefact-integrity
+story for the `windows-mcp` PyPI package → accumulate further green dispatched-probe runs
+before considering promotion toward a blocking gate → (optional) a future independent
+pass that exercises the rubric's numeric scoring protocol**.

@@ -91,7 +91,11 @@ jobs:
   # human running `-Action setup` (see docs/Guides/WINDOWS-MCP-INTEGRATION.md).
   e2e-windows:
     name: e2e-windows (dispatch-only probe)
-    if: github.event_name == 'workflow_dispatch'
+    # TEMPORARY (remove before merging PR #4): the head_ref clause auto-runs the
+    # live probe on this branch to validate the mutex + windows-mcp==0.8.2 pin
+    # changes end-to-end, since the repo's MCP token lacks actions:write to
+    # dispatch manually. The durable trigger remains workflow_dispatch-only.
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'copilot/windows-mcp-integration'
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
