@@ -23,8 +23,8 @@ SitRep (see `docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.
 
 ### 1.1 Orphaned Children / Process Leak — ✅ Fixed (commit `8646787`)
 
-**Prior finding:** `child.kill()` on the TypeScript side left the `uvx → python →
-windows-mcp` process tree orphaned on Windows.
+**Prior finding:** `child.kill()` on the TypeScript side left an orphaned
+`uvx → python → windows-mcp` descendant process tree on Windows.
 
 **Fix applied:** `invoke()`'s timeout handler now calls `spawn('taskkill', ['/PID',
 String(child.pid), '/T', '/F'])` — a synchronous tree-kill that reaches all
@@ -126,7 +126,7 @@ action rather than an implicit drift.
 
 ### 2.3 Documentation-as-Code Accuracy — ⚠️ Partially Addressed
 
-`docs/Guides/WINDOWS-MCP-INTEGRATION.md` described the single-instance guard as working
+`../../Guides/WINDOWS-MCP-INTEGRATION.md` described the single-instance guard as working
 correctly but said nothing about its concurrency limitations. An orchestrator agent
 reading the docs would have no warning that the current implementation assumed a serial
 startup phase.

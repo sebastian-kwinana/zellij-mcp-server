@@ -4,13 +4,16 @@
 - **Date:** 2026-07-10
 - **Scope:** Windows-MCP launcher integration
 - **Supersedes:** Floating `uvx windows-mcp` invocations
-- **Related provenance:** [`../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md`](../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md) — shared because the version pinning and mutex work were implemented, tested, and attested in the same 2026-07-10 session
+- **Related provenance:** [`../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md`](../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md)
 
 ## Context
 
 The Windows-MCP launcher used `uvx windows-mcp` for `auth`, `serve`, and
 `install`. That meant every invocation fetched whatever release was current on
 PyPI at the time of launch.
+
+The linked provenance record is shared with the mutex ADR because both changes
+were implemented, tested, and attested in the same 2026-07-10 session.
 
 A breaking upstream release could silently change sub-command names, CLI flags,
 output format, or Python compatibility and break users' next launch with no
