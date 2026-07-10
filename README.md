@@ -245,20 +245,23 @@ npm run dev
 | `zellij_windows_mcp_install_task` | Register a persistent scheduled task (starts at login) |
 
 On non-Windows hosts these tools return a clear "Windows-only" message and take no action.
-See [docs/WINDOWS-MCP-INTEGRATION.md](docs/WINDOWS-MCP-INTEGRATION.md) for the full setup
+See [docs/Guides/WINDOWS-MCP-INTEGRATION.md](docs/Guides/WINDOWS-MCP-INTEGRATION.md) for the full setup
 guide, the interactive-vs-automated split, and configuration options.
 
 Assurance artifacts for this integration:
-- [docs/HASE-COMPLIANCE.md](docs/HASE-COMPLIANCE.md) — High Assurance Software Engineering
+- [docs/Assurance/HASE-COMPLIANCE.md](docs/Assurance/HASE-COMPLIANCE.md) — High Assurance Software Engineering
   decision matrix (principle-by-principle rating with evidence and residual risk)
-- [docs/CONFIDENCE-RUBRIC.md](docs/CONFIDENCE-RUBRIC.md) — weighted confidence scoring
+- [docs/Assurance/CONFIDENCE-RUBRIC.md](docs/Assurance/CONFIDENCE-RUBRIC.md) — weighted confidence scoring
   rubric, self-assessment, and a self-contained protocol for independent second-opinion
   review by another frontier AI model
-- [docs/CI-DECISION-RECORD.md](docs/CI-DECISION-RECORD.md) — multi-framework decision
+- [docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md](docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md) — multi-framework decision
   analysis (MoSCoW, 8-Whys, Type-1/2 reversibility, Wardley, Cynefin, pre-mortem,
   inversion, cost-of-delay, weighted matrix) behind the CI pipeline design
-- [docs/SECOND-OPINION-CST.md](docs/SECOND-OPINION-CST.md) — ready-to-paste conversation
+- [docs/ADRs/Windows-MCP/001-pin-windows-mcp-pypi-version.md](docs/ADRs/Windows-MCP/001-pin-windows-mcp-pypi-version.md) — ADR for the upstream version pin
+- [docs/ADRs/Windows-MCP/002-serialize-launches-with-global-mutex.md](docs/ADRs/Windows-MCP/002-serialize-launches-with-global-mutex.md) — ADR for concurrent launch serialisation
+- [docs/Assurance/SECOND-OPINION-CST.md](docs/Assurance/SECOND-OPINION-CST.md) — ready-to-paste conversation
   starter for the adversarial second-opinion review, with prescribed file read order
+- [docs/README.md](docs/README.md) — docs index and taxonomy
 
 ## Example Usage
 

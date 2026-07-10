@@ -1,12 +1,13 @@
-# Decision Record: CI/CD Pipeline for the Windows-MCP Changeset
+# ADR-001: Tiered CI for the Windows-MCP changeset
 
 **Status**: Accepted, implemented in `.github/workflows/ci.yml` (this PR).
 **Date**: 2026-07-08. **Decision drivers**: HASE gap #10 (no CI) and the "ship with
-documented follow-ups" verdict in [CONFIDENCE-RUBRIC.md](CONFIDENCE-RUBRIC.md); imminent
+documented follow-ups" verdict in [CONFIDENCE-RUBRIC.md](../../Assurance/CONFIDENCE-RUBRIC.md); imminent
 automated (Copilot) and independent second-opinion reviews that weight CI presence heavily.
 
-**Question**: shall PR #1 ship "batteries included" with one or more levels of GitHub-hosted
-CI/CD, and at what scope?
+**Context**: PR #1 needed a CI posture that continuously re-verified the Windows-MCP
+assurance claims without creating a flaky or over-ambitious blocking gate.
+
 
 **Options considered**
 - **A** — no CI (defer to a later PR)

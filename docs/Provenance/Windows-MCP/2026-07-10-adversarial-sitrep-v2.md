@@ -15,7 +15,7 @@ Three previously identified vulnerabilities have reached different resolution st
 Two are fully or substantially addressed. One — the TOCTOU single-instance race —
 was acknowledged but not implemented. This document records the full evaluation and
 formalises the three recommended actions that were adopted in the same session as this
-SitRep (see `docs/2026-07-10-action-record-mutex-pinning.md`).
+SitRep (see `docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md`).
 
 ---
 
@@ -126,7 +126,7 @@ action rather than an implicit drift.
 
 ### 2.3 Documentation-as-Code Accuracy — ⚠️ Partially Addressed
 
-`docs/WINDOWS-MCP-INTEGRATION.md` described the single-instance guard as working
+`docs/Guides/WINDOWS-MCP-INTEGRATION.md` described the single-instance guard as working
 correctly but said nothing about its concurrency limitations. An orchestrator agent
 reading the docs would have no warning that the current implementation assumed a serial
 startup phase.
@@ -170,7 +170,7 @@ details.
 | 1 | **Pin `windows-mcp` PyPI version** in the script | ✅ Done — `0.8.2` |
 | 2 | **Cross-agent mutex** in `Start-WindowsMcp` | ✅ Done — `Global\ZellijWindowsMCP` |
 | 3 | **Doc accuracy** — concurrency warning for orchestrators | ✅ Done |
-| 4 | **Independent second-opinion review** (human or separate AI, no shared context) | ⚠️ Pending — see `docs/SECOND-OPINION-CST.md` |
+| 4 | **Independent second-opinion review** (human or separate AI, no shared context) | ⚠️ Pending — see `docs/Assurance/SECOND-OPINION-CST.md` |
 | 5 | **SBOM generation** for `windows-mcp` PyPI artefact | ⚠️ Pending — HASE #11 residual |
 
 ---

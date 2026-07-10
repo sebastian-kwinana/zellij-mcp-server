@@ -3,7 +3,7 @@
 **Type:** HASEng Provenance / Attestation Record  
 **Date:** 2026-07-10  
 **Branch:** `copilot/windows-mcp-integration` (based on `claude/clever-ramanujan-lob3g9` @ `8646787`)  
-**Triggered by:** Adversarial SitRep v2 (`docs/2026-07-10-adversarial-sitrep-v2.md`)  
+**Triggered by:** Adversarial SitRep v2 (`docs/Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md`)  
 **HASE principles addressed:** #3 (single-instance guard), #11 (supply-chain integrity)  
 
 ---
@@ -28,8 +28,8 @@ version against which the full integration has been empirically validated end-to
   the tool specifier instead of bare `'windows-mcp'`.
 - Added a contract test in `test/powershell-contract.test.js` asserting that the script
   contains a version variable and uses a pinned specifier.
-- Updated `docs/WINDOWS-MCP-INTEGRATION.md` prerequisites table to show the pinned version.
-- Updated HASE #11 in `docs/HASE-COMPLIANCE.md` from 🟡 partial to ✅ compliant.
+- Updated `docs/Guides/WINDOWS-MCP-INTEGRATION.md` prerequisites table to show the pinned version.
+- Updated HASE #11 in `docs/Assurance/HASE-COMPLIANCE.md` from 🟡 partial to ✅ compliant.
 
 **Upgrade procedure:** Bump `$script:WindowsMcpVersion`, run `npm test` (contract tests
 will pass), then run the `e2e-windows` dispatch probe to confirm the new version works
@@ -90,10 +90,10 @@ thread when a mutex is abandoned. A warning is logged.
 |------|--------|
 | `scripts/windows/windows-mcp.ps1` | Added `$script:WindowsMcpVersion`; pinned all uvx calls; added mutex to `Start-WindowsMcp` |
 | `test/powershell-contract.test.js` | Added contract tests for mutex presence and version pinning |
-| `docs/WINDOWS-MCP-INTEGRATION.md` | Added concurrency warning section; updated prerequisites with pinned version |
+| `docs/Guides/WINDOWS-MCP-INTEGRATION.md` | Added concurrency warning section; updated prerequisites with pinned version |
 | `scripts/windows/AGENTS.md` | Expanded lesson #3 (TOCTOU → implemented); added lesson #9 (version pinning) |
-| `docs/HASE-COMPLIANCE.md` | Promoted HASE #11 to ✅; updated HASE #3 TOCTOU entry |
+| `docs/Assurance/HASE-COMPLIANCE.md` | Promoted HASE #11 to ✅; updated HASE #3 TOCTOU entry |
 | `.github/copilot-instructions.md` | Removed stale "unpinned uvx" intentional-decisions note |
 | `.github/instructions/windows-mcp.instructions.md` | Removed "do not flag unpinned uvx" from reviewer directives |
-| `docs/2026-07-10-adversarial-sitrep-v2.md` | New — adversarial SitRep (provenance) |
-| `docs/2026-07-10-action-record-mutex-pinning.md` | New — this file (HASEng action record) |
+| `docs/Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md` | New — adversarial SitRep (provenance) |
+| `docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md` | New — this file (HASEng action record) |

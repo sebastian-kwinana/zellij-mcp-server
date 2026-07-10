@@ -104,8 +104,8 @@ test('launch uses a system-wide named mutex to serialise concurrent starts', () 
   // can race to evaluate Test-ServerRunning simultaneously — both see $false and each
   // spawns a competing server process on the same port. A Global\ named mutex
   // serialises the check-then-launch critical section across all Windows processes.
-  // See docs/2026-07-10-adversarial-sitrep-v2.md §1.3 and
-  // docs/2026-07-10-action-record-mutex-pinning.md for rationale.
+  // See docs/Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md §1.3 and
+  // docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md for rationale.
   assert.ok(
     script.includes('[System.Threading.Mutex]'),
     'Start-WindowsMcp must use a .NET System.Threading.Mutex to serialise concurrent launches'
@@ -120,7 +120,7 @@ test('uvx invocations pin windows-mcp to a specific version (HASE #11)', () => {
   // Lesson (2026-07-10): floating uvx invocations silently adopt upstream breaking
   // changes. All three uvx calls (auth, serve, install) must use the versioned
   // specifier so a supply-chain change is a deliberate, visible bump not a silent drift.
-  // See docs/2026-07-10-action-record-mutex-pinning.md for upgrade procedure.
+  // See docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md for upgrade procedure.
   assert.ok(
     script.includes('$script:WindowsMcpVersion'),
     'script must declare a $script:WindowsMcpVersion variable as the single source of truth'

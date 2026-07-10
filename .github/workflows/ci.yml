@@ -1,7 +1,7 @@
 # CI for zellij-mcp-server.
 #
 # Design rationale, alternatives considered, and the multi-framework decision
-# analysis behind this pipeline live in docs/CI-DECISION-RECORD.md.
+# analysis behind this pipeline live in docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md.
 #
 # Hardening (from the pre-mortem in that record):
 #   - GITHUB_TOKEN restricted to contents: read (no write paths from CI)
@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies (reproducible, from lockfile)
         run: npm ci
       - name: Build + unit/contract tests
-        # 33 tests via node --test. The PowerShell language-parser gate inside
+        # 44 tests via node --test. The PowerShell language-parser gate inside
         # the suite activates on both OSes (pwsh ships on GitHub runners).
         run: npm test
       - name: Integration smoke script
@@ -88,7 +88,7 @@ jobs:
   # interactive trust prompt) -> single-instance TLS launch -> live HTTPS
   # contact -> idempotent relaunch -> stop. Promote toward required status only
   # after it proves stable. The interactive mkcert-trust path is validated by a
-  # human running `-Action setup` (see docs/WINDOWS-MCP-INTEGRATION.md).
+  # human running `-Action setup` (see docs/Guides/WINDOWS-MCP-INTEGRATION.md).
   e2e-windows:
     name: e2e-windows (dispatch-only probe)
     if: github.event_name == 'workflow_dispatch'

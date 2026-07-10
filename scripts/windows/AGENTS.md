@@ -81,7 +81,7 @@ door that invokes it via `spawn` with an **argv array**.
    (defined near the top of the script). Pinned to `0.8.2` — the version validated
    by the live CI probe (2026-07-09, Actions run 29059674872). To upgrade: bump
    `$script:WindowsMcpVersion`, run `npm test`, then run the `e2e-windows` dispatch
-   probe. See `docs/2026-07-10-action-record-mutex-pinning.md` for version history.
+   probe. See `docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md` for version history.
    Do NOT revert to an unpinned `uvx windows-mcp` call — a breaking upstream release
    would silently break every user's next launch with no change to this repository.
 

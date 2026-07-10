@@ -88,7 +88,7 @@ $script:AuthErrLog = Join-Path $script:ConfigDir 'windows-mcp.auth.err.log'
 $script:ResultMarker = '__WINMCP_RESULT__'
 # Pinned upstream release. Bump this, run `npm test`, then run the e2e-windows
 # dispatch probe to confirm the new version works end-to-end before merging.
-# See docs/2026-07-10-action-record-mutex-pinning.md for version history.
+# See docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md for version history.
 $script:WindowsMcpVersion = '0.8.2'
 
 # ---------------------------------------------------------------------------
