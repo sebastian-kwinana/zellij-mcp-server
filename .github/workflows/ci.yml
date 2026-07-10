@@ -96,11 +96,17 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
+      - name: Install uv (winget; avoids executing a remote install script)
         shell: pwsh
         run: |
-          irm https://astral.sh/uv/install.ps1 | iex
-          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\.local\bin"
+          winget install -e --id astral-sh.uv --accept-source-agreements --accept-package-agreements
+          # winget persists PATH to the registry but not the current process, so
+          # refresh it before locating uv (a bare `Get-Command uv` right after
+          # install finds nothing), then export uv's dir for subsequent steps.
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $uv = (Get-Command uv -ErrorAction SilentlyContinue).Source
+          if (-not $uv) { throw 'uv not found on PATH after winget install' }
+          Add-Content $env:GITHUB_PATH (Split-Path -Parent $uv)
       - name: Scripted setup (openssl TLS certs + auth key + launch)
         shell: pwsh
         # -SkipMkcertInstall: a headless runner cannot complete `mkcert -install`
