@@ -38,7 +38,7 @@ vector for any TS-side timeout event.
 
 ### 1.2 Result-Marker Spoofing — ✅ Hardened (commit `8646787`)
 
-**Prior finding (originally disputed):** A loose `indexOf` match on `__WINMCP_RESULT__`
+**Prior finding (disputed during the earlier 2026-07-09/10 PR review cycle):** A loose `indexOf` match on `__WINMCP_RESULT__`
 could be fooled by third-party output that happens to contain the marker string, since
 `install-task` streams `uvx windows-mcp install` stdout directly through PowerShell's
 own stdout (unlike `auth`/`serve` which redirect to files).
