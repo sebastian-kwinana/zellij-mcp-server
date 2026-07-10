@@ -121,7 +121,9 @@ function Confirm-Action {
 function Get-McpUrl {
     $scheme = 'https'   # we always configure TLS in this integration
     $path = if ($Transport -eq 'sse') { '/sse' } else { '/mcp/' }
-    return "${scheme}://${BindHost}:${Port}${path}"
+    # Bracket IPv6 literals (contain ':' and not already bracketed) for the URL.
+    $h = if ($BindHost.Contains(':') -and -not $BindHost.StartsWith('[')) { "[$BindHost]" } else { $BindHost }
+    return "${scheme}://${h}:${Port}${path}"
 }
 
 function Test-PortListening {
@@ -331,8 +333,24 @@ function Start-WindowsMcp {
         -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $script:LogOut -RedirectStandardError $script:LogErr
 
+    # Confirm the server actually came up before reporting success. A fast exit
+    # (bad config, missing deps — e.g. the config.toml TOML-escape bug) must not
+    # be reported as running=true with a stale PID file. Wait up to ~20s for the
+    # process to still be alive AND the port to be listening.
+    $listening = $false
+    foreach ($i in 1..20) {
+        Start-Sleep -Seconds 1
+        if ($proc.HasExited) { break }
+        if (Test-PortListening -TcpPort $Port) { $listening = $true; break }
+    }
+    if ($proc.HasExited -or -not $listening) {
+        Write-Warn "Windows-MCP did not come up (exited=$($proc.HasExited), listening=$listening)."
+        if (Test-Path $script:LogErr) { Write-Info '--- serve stderr (tail) ---'; Get-Content $script:LogErr -Tail 25 -ErrorAction SilentlyContinue }
+        throw "windows-mcp serve failed to start listening on ${BindHost}:${Port} (see $script:LogErr)."
+    }
+
     Set-Content -Path $script:LockFile -Value $proc.Id -Encoding ascii
-    Write-Info "Windows-MCP started. PID=$($proc.Id)  URL=$(Get-McpUrl)"
+    Write-Info "Windows-MCP started and listening. PID=$($proc.Id)  URL=$(Get-McpUrl)"
     Write-Info "Logs: $script:LogOut  |  $script:LogErr"
 
     Write-Result @{

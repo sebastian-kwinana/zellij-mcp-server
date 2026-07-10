@@ -228,6 +228,12 @@ export class Validator {
       errors.push('Host must not start with "-"');
     } else if (this.ARG_INJECTION.test(trimmed)) {
       errors.push('Host contains invalid characters');
+    } else if (/^[^:]+:\d+$/.test(trimmed)) {
+      // hostname/IPv4 followed by ":<digits>" is a host:port pair; the port is
+      // supplied separately, and leaving it here yields URLs like
+      // https://localhost:8000:8000/. A bare IPv6 literal (::1, fe80::1) has
+      // multiple colons and is unaffected; bracket it or pass port separately.
+      errors.push('Host must not include a port (":<n>"); pass the port separately');
     } else if (!/^[a-zA-Z0-9_.\-:[\]]+$/.test(trimmed) || trimmed.length > 255) {
       errors.push('Host must be a valid hostname or IP address (max 255 chars)');
     }

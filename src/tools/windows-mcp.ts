@@ -15,7 +15,6 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
-import { execAsync } from '../utils/command.js';
 import { Validator } from '../utils/validator.js';
 import { isWindows, describePlatform } from '../utils/platform.js';
 import { resolveWindowsMCPConfig } from '../utils/config.js';
@@ -162,14 +161,31 @@ export class WindowsMCPTools {
 
   private static async detectPowerShell(): Promise<string> {
     if (this.shell) return this.shell;
-    // Prefer PowerShell 7+ (pwsh); fall back to Windows PowerShell.
+    // Prefer PowerShell 7+ (pwsh); fall back to Windows PowerShell. Probe via
+    // spawn + argv (no shell) to match the rest of this module's discipline.
     for (const candidate of ['pwsh', 'powershell.exe']) {
-      try {
-        await execAsync(`${candidate} -NoProfile -Command "exit 0"`, { timeout: 10_000 });
+      const ok = await new Promise<boolean>((resolve) => {
+        try {
+          const child = spawn(candidate, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true });
+          const timer = setTimeout(() => {
+            child.kill();
+            resolve(false);
+          }, 10_000);
+          child.on('error', () => {
+            clearTimeout(timer);
+            resolve(false);
+          });
+          child.on('close', (code) => {
+            clearTimeout(timer);
+            resolve(code === 0);
+          });
+        } catch {
+          resolve(false);
+        }
+      });
+      if (ok) {
         this.shell = candidate;
         return candidate;
-      } catch {
-        /* try next */
       }
     }
     this.shell = 'powershell.exe';
@@ -203,7 +219,7 @@ export class WindowsMCPTools {
 
   private static describeUrl(config: WindowsMCPConfig): string {
     const urlPath = config.transport === 'sse' ? '/sse' : '/mcp/';
-    return `https://${config.host}:${config.port}${urlPath}`;
+    return `https://${formatHostForUrl(config.host)}:${config.port}${urlPath}`;
   }
 }
 
@@ -230,4 +246,12 @@ function parseResult(stdout: string): any | null {
 
 function text(message: string): ToolResponse {
   return { content: [{ type: 'text', text: message }] };
+}
+
+/** Bracket IPv6 literals for use in a URL authority (e.g. ::1 -> [::1]). */
+function formatHostForUrl(host: string): string {
+  if (host.includes(':') && !host.startsWith('[')) {
+    return `[${host}]`;
+  }
+  return host;
 }

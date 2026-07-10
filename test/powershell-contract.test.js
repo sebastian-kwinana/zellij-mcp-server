@@ -83,6 +83,22 @@ test('cert setup is headless-safe: bounded, logged, and has an openssl escape ha
     'the script must repair windows-mcp config.toml backslash paths before serve');
 });
 
+test('launch verifies the server actually came up before reporting success', () => {
+  // A fast serve exit (bad config/deps) must not report running=true with a
+  // stale PID; Start-WindowsMcp waits for HasExited/listening before success.
+  assert.ok(script.includes('HasExited'), 'launch must check the serve process did not exit early');
+  // The readiness check must precede writing the PID lockfile / success result.
+  const readinessIdx = script.indexOf('-not $listening');
+  const lockWriteIdx = script.indexOf('Set-Content -Path $script:LockFile');
+  assert.ok(readinessIdx !== -1 && lockWriteIdx !== -1 && readinessIdx < lockWriteIdx,
+    'the PID lockfile must be written only after confirming the port is listening');
+});
+
+test('URLs bracket IPv6 literals (host and PowerShell)', () => {
+  assert.ok(/BindHost\.Contains\(':'\)/.test(script) && script.includes('"[$BindHost]"'),
+    'Get-McpUrl must bracket IPv6 BindHost values');
+});
+
 test('PowerShell language parser reports no syntax errors (when pwsh/powershell available)', (t) => {
   const shells = ['pwsh', 'powershell.exe', '/tmp/pwsh/pwsh'];
   let shell = null;
