@@ -40,6 +40,12 @@ Windows CI probe on 2026-07-09/10.
 - Upgrades now require a deliberate maintenance step.
 - The repository must carry and document version history.
 
+## Version history
+
+| Version | Date pinned | Probe run | Notes |
+|---------|-------------|-----------|-------|
+| `0.8.2` | 2026-07-10 | 29059674872 | Initial pin; first fully validated release |
+
 ## Operational follow-up
 
 To upgrade:
@@ -47,4 +53,4 @@ To upgrade:
 1. Bump `$script:WindowsMcpVersion` in `scripts/windows/windows-mcp.ps1`.
 2. Run `npm test`.
 3. Run the `e2e-windows` dispatch probe.
-4. Update the version history in the linked provenance record.
+4. Update the version history table in this ADR and the linked provenance record.

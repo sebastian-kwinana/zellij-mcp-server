@@ -29,11 +29,12 @@ config/validation layers + test suite + CI pipeline + assurance documents).
 READ ORDER — read fully, in exactly this order, before forming any conclusion
 Phase 1 (the claims you will attack):
  1. README.md — section "Windows-MCP Integration" only
- 2. docs/Guides/WINDOWS-MCP-INTEGRATION.md        (claimed design & security model)
- 3. docs/Assurance/HASE-COMPLIANCE.md                (18 rated claims — your refutation targets)
- 4. docs/Assurance/CONFIDENCE-RUBRIC.md              (scoring protocol you must follow; note the
-                                            author self-scored 4.33/5)
- 5. docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md             (why the pipeline is shaped as it is)
+ 2. docs/Guides/WINDOWS-MCP-INTEGRATION.md     (claimed design & security model)
+ 3. docs/Assurance/HASE-COMPLIANCE.md          (18 rated claims — your refutation targets)
+ 4. docs/Assurance/CONFIDENCE-RUBRIC.md        (scoring protocol you must follow; note the
+                                                author self-scored 4.33/5)
+ 5. docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md
+                                              (why the pipeline is shaped as it is)
 Phase 2 (source, dependency order):
  6. src/types/zellij.ts                    (WindowsMCPConfig / WindowsMCPStatus only)
  7. src/utils/platform.ts
