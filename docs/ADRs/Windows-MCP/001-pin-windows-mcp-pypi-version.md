@@ -6,6 +6,10 @@
 - **Supersedes:** Floating `uvx windows-mcp` invocations
 - **Related provenance:** [`../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md`](../../Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md)
 
+The linked action record remains shared provenance because the version pinning
+and mutex work were implemented, tested, and attested in the same 2026-07-10
+session.
+
 ## Context
 
 The Windows-MCP launcher used `uvx windows-mcp` for `auth`, `serve`, and
