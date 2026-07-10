@@ -24,6 +24,14 @@ door that invokes it via `spawn` with an **argv array**.
    a deliberate fail-closed trade-off — the normal flow reads the key from
    `config.toml`, not the `-AuthKey` override.)
 
+   **`-AuthKey` credential exposure in process listings:** When the optional `-AuthKey`
+   parameter override is used, the auth key value is visible in the `uvx` process
+   command line — accessible via `Get-Process`, Task Manager, or `ps` on the host.
+   The normal flow reads the key from `~/.windows-mcp/config.toml` (written by
+   `windows-mcp auth --with-tls`) and never passes it as a CLI argument to the
+   `serve` sub-command. Only use `-AuthKey` as a last resort (e.g. testing or when
+   `config.toml` is not writable); prefer the standard `setup` flow.
+
 2. **Never trust a lockfile PID blindly.** `Get-RunningPid` confirms the PID's
    command line references `windows-mcp` (`Win32_Process.CommandLine`) before
    reporting or `Stop-Process`-ing it, so a stale lockfile + a recycled PID can't

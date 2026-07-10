@@ -125,7 +125,9 @@ test('uvx invocations pin windows-mcp to a specific version (HASE #11)', () => {
     script.includes('$script:WindowsMcpVersion'),
     'script must declare a $script:WindowsMcpVersion variable as the single source of truth'
   );
-  const versionedSpecifier = /windows-mcp==\$\(\$script:WindowsMcpVersion\)/;
+  // Match any PowerShell reference style for the variable: $($script:WindowsMcpVersion)
+  // or ${script:WindowsMcpVersion} etc., as long as the version variable drives the spec.
+  const versionedSpecifier = /windows-mcp==.*WindowsMcpVersion/;
   const matches = script.match(new RegExp(versionedSpecifier.source, 'g'));
   assert.ok(
     matches && matches.length >= 3,

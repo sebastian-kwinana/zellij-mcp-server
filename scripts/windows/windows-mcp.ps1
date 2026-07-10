@@ -316,12 +316,21 @@ function Start-WindowsMcp {
     $mutex = [System.Threading.Mutex]::new($false, 'Global\ZellijWindowsMCP')
     $mutexAcquired = $false
     try {
-        # Wait up to 30 s for any concurrent launcher to finish. On timeout we
-        # proceed without the guard (fail-open for availability) but re-check the
-        # running state — a concurrent agent that succeeded will have written the
-        # lockfile, so we will still short-circuit below.
-        $mutexAcquired = $mutex.WaitOne(30000)
+        # WaitOne returns true (acquired) or false (timeout). On abandonment (the
+        # previous holder was hard-killed) it throws AbandonedMutexException, but
+        # the caller gains ownership per the .NET contract, so we treat it as
+        # acquired and log a warning rather than propagating the exception.
+        try {
+            $mutexAcquired = $mutex.WaitOne(30000)
+        } catch [System.Threading.AbandonedMutexException] {
+            $mutexAcquired = $true  # ownership transfers to us on abandonment
+            Write-Warn 'Launch mutex was abandoned (prior holder killed). Taking ownership and proceeding.'
+        }
         if (-not $mutexAcquired) {
+            # Timeout: another agent has been holding the mutex for > 30 s (unusual;
+            # normal startup takes < 25 s). Proceed without the guard, but re-check
+            # Test-ServerRunning below — if the concurrent agent succeeded in the
+            # meantime the existing-server branch will short-circuit correctly.
             Write-Warn 'Launch mutex not acquired within 30 s; concurrent agent may be launching. Proceeding.'
         }
 
