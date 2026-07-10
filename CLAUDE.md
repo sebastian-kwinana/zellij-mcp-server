@@ -23,7 +23,7 @@ re-learn the hard way.
   `scripts/windows/AGENTS.md`.
 
 ## Assurance artifacts
-`docs/HASE-COMPLIANCE.md`, `docs/CONFIDENCE-RUBRIC.md`, `docs/CI-DECISION-RECORD.md`,
-`docs/SECOND-OPINION-CST.md`. Development happens in a git worktree on branch
+`docs/Assurance/HASE-COMPLIANCE.md`, `docs/Assurance/CONFIDENCE-RUBRIC.md`, `docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md`,
+`docs/Assurance/SECOND-OPINION-CST.md`. Development happens in a git worktree on branch
 `claude/clever-ramanujan-lob3g9` (PR #1). PR #2 is a throwaway Copilot review
 vehicle — do not merge it to `main`.

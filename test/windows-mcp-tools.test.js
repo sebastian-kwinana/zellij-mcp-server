@@ -3,7 +3,7 @@
 // On non-Windows hosts (CI, Linux dev boxes) every tool must fail closed:
 // return a clear "Windows-only" message and perform no action. The
 // Windows-side execution path (PowerShell invocation, single-instance launch)
-// is covered by the on-host checklist in docs/WINDOWS-MCP-INTEGRATION.md and
+// is covered by the on-host checklist in docs/Guides/WINDOWS-MCP-INTEGRATION.md and
 // the PowerShell parser gate in test/powershell-syntax.test.js.
 
 import { test } from 'node:test';

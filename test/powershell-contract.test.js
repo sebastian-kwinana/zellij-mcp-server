@@ -99,6 +99,42 @@ test('URLs bracket IPv6 literals (host and PowerShell)', () => {
     'Get-McpUrl must bracket IPv6 BindHost values');
 });
 
+test('launch uses a system-wide named mutex to serialise concurrent starts', () => {
+  // Lesson (2026-07-10): in a multi-agent swarm (CAMSO/CAICEWAC), parallel agents
+  // can race to evaluate Test-ServerRunning simultaneously — both see $false and each
+  // spawns a competing server process on the same port. A Global\ named mutex
+  // serialises the check-then-launch critical section across all Windows processes.
+  // See docs/Provenance/Windows-MCP/2026-07-10-adversarial-sitrep-v2.md §1.3 and
+  // docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md for rationale.
+  assert.ok(
+    script.includes('[System.Threading.Mutex]'),
+    'Start-WindowsMcp must use a .NET System.Threading.Mutex to serialise concurrent launches'
+  );
+  assert.ok(
+    script.includes("'Global\\ZellijWindowsMCP'"),
+    "mutex must use the Global\\ scope (cross-session) with the canonical name ZellijWindowsMCP"
+  );
+});
+
+test('uvx invocations pin windows-mcp to a specific version (HASE #11)', () => {
+  // Lesson (2026-07-10): floating uvx invocations silently adopt upstream breaking
+  // changes. All three uvx calls (auth, serve, install) must use the versioned
+  // specifier so a supply-chain change is a deliberate, visible bump not a silent drift.
+  // See docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md for upgrade procedure.
+  assert.ok(
+    script.includes('$script:WindowsMcpVersion'),
+    'script must declare a $script:WindowsMcpVersion variable as the single source of truth'
+  );
+  // Match any PowerShell reference style for the variable: $($script:WindowsMcpVersion)
+  // or ${script:WindowsMcpVersion} etc., as long as the version variable drives the spec.
+  const versionedSpecifier = /windows-mcp==.*WindowsMcpVersion/;
+  const matches = script.match(new RegExp(versionedSpecifier.source, 'g'));
+  assert.ok(
+    matches && matches.length >= 3,
+    'all three uvx invocations (auth, serve, install) must use the pinned version specifier'
+  );
+});
+
 test('PowerShell language parser reports no syntax errors (when pwsh/powershell available)', (t) => {
   const shells = ['pwsh', 'powershell.exe', '/tmp/pwsh/pwsh'];
   let shell = null;

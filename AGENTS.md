@@ -15,7 +15,7 @@ authoritative file is [`.github/copilot-instructions.md`](.github/copilot-instru
 ```bash
 npm ci                   # ALWAYS from the lockfile; a partial node_modules
                          # silently falls back to a stray global tsc (see lessons)
-npm test                 # build + 34 unit/contract tests
+npm test                 # build + 44 unit/contract tests
 npm run test:integration # portable smoke checks
 ```
 

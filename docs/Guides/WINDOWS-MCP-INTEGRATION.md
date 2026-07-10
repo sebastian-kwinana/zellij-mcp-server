@@ -101,6 +101,28 @@ Defaults can be overridden (precedence: tool argument > env var > config file > 
 
 When an auth key is configured, clients must send `Authorization: Bearer <token>`.
 
+## Multi-agent concurrency
+
+**Single-operator workstations** can call `zellij_windows_mcp_launch` freely —
+the single-instance guard short-circuits immediately on the second call.
+
+**Multi-agent orchestrators (CAMSO / CAICEWAC and similar swarms)** should be aware
+of the following:
+
+- `Start-WindowsMcp` holds a machine-wide `Global\ZellijWindowsMCP` .NET mutex
+  during the critical section (from `Test-ServerRunning` through writing the PID
+  lockfile). This serialises concurrent launch attempts across all Windows processes
+  and sessions.
+- The mutex `WaitOne` has a **30-second timeout**. If a concurrent launcher is still
+  initialising after 30 seconds, a second agent proceeds without the mutex guard —
+  fail-open for availability. In practice the server comes up in under 25 seconds.
+- **Orchestrators should still serialise their own `launch` calls** where possible.
+  The mutex is a safety net, not a substitute for a serial startup phase. Issue
+  `zellij_windows_mcp_status` first; only call `launch` when `running: false`.
+- The `stop` action does **not** hold the mutex. If you stop and immediately re-launch
+  from multiple agents, one may observe the port as not yet freed (OS TIME_WAIT).
+  Introduce a brief delay or check `status` before re-launching.
+
 ## Persistent install
 
 ```powershell

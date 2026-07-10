@@ -29,11 +29,12 @@ config/validation layers + test suite + CI pipeline + assurance documents).
 READ ORDER — read fully, in exactly this order, before forming any conclusion
 Phase 1 (the claims you will attack):
  1. README.md — section "Windows-MCP Integration" only
- 2. docs/WINDOWS-MCP-INTEGRATION.md        (claimed design & security model)
- 3. docs/HASE-COMPLIANCE.md                (18 rated claims — your refutation targets)
- 4. docs/CONFIDENCE-RUBRIC.md              (scoring protocol you must follow; note the
-                                            author self-scored 3.80/5)
- 5. docs/CI-DECISION-RECORD.md             (why the pipeline is shaped as it is)
+ 2. docs/Guides/WINDOWS-MCP-INTEGRATION.md     (claimed design & security model)
+ 3. docs/Assurance/HASE-COMPLIANCE.md          (18 rated claims — your refutation targets)
+ 4. docs/Assurance/CONFIDENCE-RUBRIC.md        (scoring protocol you must follow; note the
+                                                author self-scored 4.33/5)
+ 5. docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md
+                                              (why the pipeline is shaped as it is)
 Phase 2 (source, dependency order):
  6. src/types/zellij.ts                    (WindowsMCPConfig / WindowsMCPStatus only)
  7. src/utils/platform.ts
@@ -78,7 +79,7 @@ npm run test:integration`, and confirm the CI run results on PR #1.
 If you cannot execute: say so explicitly and mark affected scores as
 static-analysis-only.
 
-REQUIRED OUTPUT — follow docs/CONFIDENCE-RUBRIC.md exactly:
+REQUIRED OUTPUT — follow docs/Assurance/CONFIDENCE-RUBRIC.md exactly:
  - Score all six dimensions (0–5, anchors in the rubric), with the rubric's
    weights; justify any score differing from the self-assessment by >1 point.
  - Weighted total and verdict per the rubric's table.
@@ -90,7 +91,7 @@ REQUIRED OUTPUT — follow docs/CONFIDENCE-RUBRIC.md exactly:
    "Known limitations" — anything beyond those).
  - Top 3 recommended actions, effort-ranked.
 Format the whole review using the exact template under "Required output format
-for the second opinion" in docs/CONFIDENCE-RUBRIC.md so it can be appended to
+for the second opinion" in docs/Assurance/CONFIDENCE-RUBRIC.md so it can be appended to
 that file's "Second opinions" section verbatim.
 
 INTEGRITY RULES
@@ -105,4 +106,4 @@ written by the party under review.
 
 **Handling the result**: paste the completed review back into the Claude session (or a PR
 comment). Disagreements get reconciled against evidence; confirmed findings become fixes;
-the final review text is appended to `docs/CONFIDENCE-RUBRIC.md → Second opinions`.
+the final review text is appended to `docs/Assurance/CONFIDENCE-RUBRIC.md → Second opinions`.

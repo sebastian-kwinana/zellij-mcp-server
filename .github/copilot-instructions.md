@@ -16,7 +16,7 @@ around 1000 lines; high signal beats completeness).
 An MCP (Model Context Protocol) server that drives the Zellij terminal
 multiplexer, plus a **Windows-MCP integration** that (on Windows hosts only)
 launches CursorTouch/Windows-MCP over secure streamable-http with locally
-trusted TLS. See `README.md` and `docs/WINDOWS-MCP-INTEGRATION.md`.
+trusted TLS. See `README.md` and `docs/Guides/WINDOWS-MCP-INTEGRATION.md`.
 
 ## Stack & conventions
 - **TypeScript (ESM, `"type": "module"`), Node.js.** Dev/CI run on **Node 22**;
@@ -36,7 +36,7 @@ trusted TLS. See `README.md` and `docs/WINDOWS-MCP-INTEGRATION.md`.
 ## How to build & verify (please actually run these)
 ```bash
 npm ci
-npm test              # builds, then runs 33 unit/contract tests
+npm test              # builds, then runs 44 unit/contract tests
 npm run test:integration   # portable smoke checks
 ```
 CI (`.github/workflows/ci.yml`) runs the suite on ubuntu-latest **and**
@@ -68,16 +68,17 @@ probe (never a PR gate — by design).
 - **Quoted `"test/*.test.js"` glob** is intentional: Node 21+ expands it
   natively and consistently across POSIX/Windows. Bare `node --test` is avoided
   because it would sweep in non-test scripts (`test-detection.js`).
-- **`windows-mcp` is fetched unpinned via `uvx`** — a *known, documented*
-  follow-up (see HASE #11), not an oversight.
+- **`windows-mcp` is now pinned to `0.8.2`** via `$script:WindowsMcpVersion` in
+  `windows-mcp.ps1`. To upgrade, bump that variable, run `npm test`, and run the
+  `e2e-windows` dispatch probe. See `docs/Provenance/Windows-MCP/2026-07-10-action-record-mutex-pinning.md`.
 
 ## Security model (one line)
 Loopback bind + TLS + optional auth key + optional IP allowlist; validated,
 argv-array-passed arguments; per-tool rate limiting. Details in
-`docs/WINDOWS-MCP-INTEGRATION.md`.
+`docs/Guides/WINDOWS-MCP-INTEGRATION.md`.
 
 ## Assurance artifacts (read for rationale before challenging a design choice)
-- `docs/HASE-COMPLIANCE.md` — 18-principle compliance matrix (evidence + residual risk)
-- `docs/CONFIDENCE-RUBRIC.md` — weighted self-assessment + independent-review protocol
-- `docs/CI-DECISION-RECORD.md` — multi-framework rationale for the CI shape
-- `docs/SECOND-OPINION-CST.md` — prompt for an independent, adversarial second-opinion review
+- `docs/Assurance/HASE-COMPLIANCE.md` — 18-principle compliance matrix (evidence + residual risk)
+- `docs/Assurance/CONFIDENCE-RUBRIC.md` — weighted self-assessment + independent-review protocol
+- `docs/ADRs/CI/001-tiered-ci-for-windows-mcp.md` — multi-framework rationale for the CI shape
+- `docs/Assurance/SECOND-OPINION-CST.md` — prompt for an independent, adversarial second-opinion review
