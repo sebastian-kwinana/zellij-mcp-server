@@ -28,10 +28,10 @@ the repository, not intent.
 | 4 | **Defence in depth** | ✅ | Layers: TS validation → argv-array passing → PowerShell `ValidateSet`/typed params → upstream Windows-MCP loopback/auth refusals → TLS → optional auth key + IP allowlist. | — |
 | 5 | **Economy of mechanism** | ✅ | Integration reuses Windows-MCP's own `auth --with-tls`, `serve`, `install` commands rather than reimplementing cert or task logic; one script, one tool module. | — |
 | 6 | **Least privilege** | 🟡 | Loopback bind by default; scheduled task registered at `-RunLevel Limited` (upstream); no elevation required for mkcert via scoop. | Windows-MCP itself has full desktop control by design — documented prominently; `-ExecutionPolicy Bypass` is used to invoke our own shipped script (standard practice, but noted). Mitigate by `ip_allowlist` + auth key; consider a dedicated low-privilege user for the scheduled task. |
-| 7 | **Idempotency / single instance** | 🟡 | Launch-once enforced by port-listen check **and** PID lockfile (`test/powershell-contract.test.js` pins both). | Check-then-act has an inherent TOCTOU window between port check and process start; acceptable for a single-operator workstation, would need a named mutex for multi-agent concurrency. |
+| 7 | **Idempotency / single instance** | 🟡 | Launch-once enforced by port-listen check **and** PID lockfile (`test/powershell-contract.test.js` pins both); **empirically demonstrated** on real `windows-latest` — a second `launch` against a running server correctly reported `"alreadyUp":true` and took no action (Actions run 29059674872, "Idempotent relaunch must no-op" step). | Check-then-act has an inherent TOCTOU window between port check and process start; acceptable for a single-operator workstation, would need a named mutex for multi-agent concurrency. |
 | 8 | **Auditability / observability** | 🟡 | Server stdout/stderr redirected to log files under `%LOCALAPPDATA%\zellij-mcp`; machine-readable JSON status lines; status tool reports PID/URL. | No structured audit log of who launched/stopped; no log rotation. |
-| 9 | **Verification & test coverage** | 🟡 | 36 unit/contract tests (validators, config precedence, platform guard, TS↔PowerShell contract, headless-safety); PowerShell language-parser gate; smoke script; full suite on `windows-latest` per PR. The **live E2E probe already paid for itself**: on real `windows-latest` runners it surfaced two genuine bugs that unit tests could not — `mkcert -install` hanging on an interactive trust dialog (headless), and an upstream `UnicodeEncodeError` when `windows-mcp`'s captured stdout hit cp1252 — both now fixed (timeout+logging+`-SkipMkcertInstall`; `PYTHONUTF8`). | The live launch path is validated via the openssl+headless probe; the interactive mkcert-trust path is human-run by design. Remediation: promote the probe once green across ~5 runs. |
-| 10 | **Continuous integration** | ✅ | GitHub Actions pipeline (`.github/workflows/ci.yml`): build + full test suite on `ubuntu-latest` **and** `windows-latest`, dependency audit gate (high/critical), `dist/` drift gate, PSScriptAnalyzer Error-severity gate, dispatch-only Windows E2E probe. Design rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md). First execution observed green on PR #1 (Actions run 28933079883: both OS legs + quality gates passed; e2e correctly skipped on PR events). | Live E2E remains a dispatch-only probe (tracked under #9). |
+| 9 | **Verification & test coverage** | ✅ | 39 unit/contract tests (validators incl. IPv6/host:port, config precedence, platform guard, TS↔PowerShell contract, headless-safety, launch-readiness); PowerShell language-parser + PSScriptAnalyzer gates; smoke script; full suite on `windows-latest` per PR. **The live E2E probe achieved a complete green run on a real `windows-latest` runner** (Actions run 29059674872, 2026-07-10): `winget` uv install → cert/auth-key generation → TLS `serve` launch → confirmed listening → HTTPS handshake reachable (401, correctly rejecting the unauthenticated request) → idempotent relaunch no-op (`alreadyUp:true`) → status → clean stop. Along the way the probe found and drove fixes for **three real bugs no unit test could reach**: `mkcert -install` hanging on an interactive trust dialog (headless), an upstream `UnicodeEncodeError` when `windows-mcp`'s captured stdout hit cp1252, and `serve` failing to parse its own `config.toml` because `auth` writes Windows paths into TOML basic strings unescaped. | The interactive mkcert-trust path (vs. the openssl fallback exercised by the probe) remains human-verified only, by design — it requires a Windows trust-store dialog no headless runner can answer. |
+| 10 | **Continuous integration** | ✅ | GitHub Actions pipeline (`.github/workflows/ci.yml`): build + full test suite on `ubuntu-latest` **and** `windows-latest`, dependency audit gate (high/critical), `dist/` drift gate, PSScriptAnalyzer Error-severity gate, dispatch-only Windows E2E probe. Design rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md). Observed green on every PR run since, including a full pass of the dispatched live probe (run 29059674872). | Live E2E remains a manually-dispatched probe, not a blocking gate (intentional — see CI-DECISION-RECORD.md); promote toward required status after further consecutive green runs. |
 | 11 | **Supply-chain integrity** | 🟡 | Single runtime dependency (`@modelcontextprotocol/sdk`) with committed lockfile; `npm audit` clean (5 advisories, 2 high, fixed on this branch) and now gated in CI at high/critical; vendored `node_modules/` (2,267 files) removed from tracking — lockfile + `npm ci` is the single source of truth; reference clone of Windows-MCP is gitignored, not vendored; mkcert installed from official package-manager IDs (`FiloSottile.mkcert`); CI restricted to official pinned actions with a read-only token. | `uvx` fetches `windows-mcp` from PyPI without version pinning or hash verification; no SBOM. Remediation: pin `windows-mcp==<version>` in the script, add SBOM generation. |
 | 12 | **Cryptographic hygiene** | 🟡 | TLS via mkcert-issued, locally-trusted certs (local CA never leaves the machine); auth key generated upstream with `secrets.token_urlsafe(32)`; openssl fallback is RSA-4096. | Self-signed fallback is trust-on-first-use until manually imported; no cert rotation/expiry monitoring (mkcert default validity applies). |
 | 13 | **Error handling & typed failure** | ✅ | Typed errors (`ValidationError`/`SecurityError`/`ZellijError`) mapped to MCP error codes; the PowerShell script traps all exceptions, emits a JSON error record, and exits non-zero. | — |
@@ -43,17 +43,22 @@ the repository, not intent.
 
 ## Summary
 
-*(Revised 2026-07-08: CI pipeline, dependency-audit fix, and vendored-`node_modules`
-removal shipped; rows 9–11 and 15 re-rated accordingly.)*
+*(Revised 2026-07-10: the dispatched live Windows E2E probe achieved a complete green
+run — cert/auth-key generation, TLS launch, HTTPS reachability, idempotent relaunch,
+status, and clean stop, all confirmed on a real `windows-latest` runner. Row 9 promoted
+to Compliant; row 7's idempotency claim now has direct empirical evidence, not just
+static tests.)*
 
-- **Compliant: 10** (1–5, 10, 13–16) — the core security posture of the change, plus
-  drift-gated reproducible builds and CI observed green on both OS legs.
-- **Partial: 7** (6–9, 11, 12, 17) — implemented with documented, bounded residual risk.
+- **Compliant: 11** (1–5, 9, 10, 13–16) — the core security posture of the change, plus
+  drift-gated reproducible builds and both static + live-runner verification observed green.
+- **Partial: 6** (6–8, 11, 12, 17) — implemented with documented, bounded residual risk.
 - **Gap: 1** (18 independent review — protocol ready in
   [SECOND-OPINION-CST.md](SECOND-OPINION-CST.md); execution pending).
 
 **Overall judgement**: the integration follows secure-by-default, validated-input,
-fail-closed design, is regression-tested on every push on both target OS families, and its
-build artefacts are drift-gated. Remaining investments in effort-to-assurance order:
-**pin the `windows-mcp` PyPI version → complete the independent second-opinion review →
-stabilise and promote the dispatched Windows E2E probe**.
+fail-closed design, is regression-tested on every push on both target OS families, its
+build artefacts are drift-gated, and its live launch chain has now been exercised
+end-to-end on real Windows — not merely reasoned about. Remaining investments in
+effort-to-assurance order: **pin the `windows-mcp` PyPI version → complete the
+independent second-opinion review → accumulate further green dispatched-probe runs
+before considering promotion toward a blocking gate**.

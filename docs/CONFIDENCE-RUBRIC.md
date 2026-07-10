@@ -50,19 +50,19 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 
 | Dimension | Weight | What to verify | Self-score | Self-justification |
 |-----------|-------:|----------------|-----------:|--------------------|
-| **Correctness** | 25% | Build passes; tool registration complete (schema + dispatch for all five tools); config precedence behaves as documented; TS↔PowerShell contract holds (param names, result marker, action set). | 4.0 | `npm test` green (validators, config precedence, contract pins); compiled output committed in sync; **not** exercised on a real Windows host in this environment. |
-| **Security** | 25% | Input validation completeness; no shell-string interpolation anywhere on the invocation path; fail-closed platform guard ordering; secure defaults (TLS, loopback, streamable-http); secrets never logged. | 4.0 | Allowlist validators + argv arrays + `ValidateSet` + upstream refusals (4 layers); guard-before-validation pinned by test; residuals: `-AuthKey` visible in process listing if used, TOCTOU window in single-instance guard. |
-| **Test coverage** | 20% | Tests exist, run, and actually assert the claimed properties; negative/injection cases present; coverage of the Windows-only path. | 3.5 | 5 test files + smoke script; injection corpus in `test/validator.test.js`; CI now executes the full suite (incl. the PowerShell parser gate natively) on `windows-latest` per PR — observed green on run 28933079883. Held below 4 because the live launch path is still a dispatch-only probe, not an automated gate. |
+| **Correctness** | 25% | Build passes; tool registration complete (schema + dispatch for all five tools); config precedence behaves as documented; TS↔PowerShell contract holds (param names, result marker, action set). | 4.5 | `npm test` green; compiled output committed in sync; the TS↔PowerShell contract is now empirically confirmed end-to-end on a real `windows-latest` runner (Actions run 29059674872), not just statically pinned. |
+| **Security** | 25% | Input validation completeness; no shell-string interpolation anywhere on the invocation path; fail-closed platform guard ordering; secure defaults (TLS, loopback, streamable-http); secrets never logged. | 4.0 | Allowlist validators (incl. IPv6/host:port hardening from Copilot's 2nd review) + argv arrays + `ValidateSet` + upstream refusals (4 layers); guard-before-validation pinned by test; residuals: `-AuthKey` visible in process listing if used, TOCTOU window in single-instance guard. |
+| **Test coverage** | 20% | Tests exist, run, and actually assert the claimed properties; negative/injection cases present; coverage of the Windows-only path. | 4.5 | 39 tests; injection corpus incl. IPv6/host:port; the live E2E probe achieved a **complete green run** on real Windows (cert→auth→launch→listening→HTTPS→idempotent relaunch→stop), and found+drove fixes for 3 real bugs unit tests could not reach. Held just below 5 because it's a dispatched probe, not yet a required gate, and only a handful of green runs exist so far. |
 | **Documentation** | 10% | A competent stranger can set this up from docs alone; security trade-offs stated honestly; interactive-vs-automated split explained. | 4.5 | README section + full guide + HASE matrix + this rubric; verify by following WINDOWS-MCP-INTEGRATION.md cold. |
 | **Maintainability** | 10% | Matches existing repo conventions (static tool classes, Validator, ToolResponse, error types); no new runtime dependencies; clear separation TS orchestration vs PowerShell mechanics. | 4.0 | Zero new npm dependencies; conventions mirrored; one script instead of many; `dist/`-committed convention inherited (pre-existing drift risk). |
-| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 4.0 | 10 compliant / 7 partial / 1 gap after the CI, audit-fix, and vendored-`node_modules` remediations; the remaining gap (independent review) has its protocol ready and pending execution. |
+| **HASE compliance** | 10% | Spot-check the [decision matrix](HASE-COMPLIANCE.md): are the ✅ ratings evidenced? Are the 🟡/❌ honest? | 4.5 | 11 compliant / 6 partial / 1 gap after live-probe validation promoted row 9; the remaining gap (independent review) has its protocol ready and pending execution. |
 
 ### Weighted self-assessment
 
-`0.25×4.0 + 0.25×4.0 + 0.20×3.5 + 0.10×4.5 + 0.10×4.0 + 0.10×4.0 = 3.95 / 5`
-*(originally 3.80; Tests and HASE re-scored per the revision note after CI was observed green)*
+`0.25×4.5 + 0.25×4.0 + 0.20×4.5 + 0.10×4.5 + 0.10×4.0 + 0.10×4.5 = 4.33 / 5`
+*(2026-07-10: Correctness, Tests, and HASE re-scored after the live Windows E2E probe achieved a complete green run — see revision note below)*
 
-**Confidence band**: 3.95 → **"Ship with documented follow-ups"** (see verdict table).
+**Confidence band**: 4.33 → **"Ship with documented follow-ups"** (see verdict table).
 
 | Weighted score | Verdict |
 |----------------|---------|
@@ -72,16 +72,25 @@ You are reviewing someone else's work. Do not trust the self-assessment below �
 | < 2.5 | Do not ship; rework |
 
 The declared follow-ups (in priority order) are: pin the `windows-mcp` PyPI version in the
-script, ~~add CI (`ubuntu-latest` + `windows-latest`)~~ *(done — see revision note)*,
-stabilise then promote the dispatched Windows E2E probe.
+script, ~~add CI (`ubuntu-latest` + `windows-latest`)~~ *(done)*, complete the independent
+second-opinion review, accumulate further green dispatched-probe runs before considering
+promotion toward a required (blocking) gate.
 
-> **Revision 2026-07-08**: after the original self-assessment, this branch added the CI
-> pipeline (`.github/workflows/ci.yml` — both-OS test matrix, audit/dist-drift/PSSA gates,
-> dispatch-only Windows E2E probe; rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md)),
-> fixed 5 `npm audit` advisories (2 high), and untracked 2,267 vendored `node_modules` files.
-> The first CI runs on PR #1 were **observed green** (Actions run 28933079883: ubuntu ✅,
-> windows ✅, quality-gates ✅, e2e correctly skipped), so the pre-declared projection has
-> been applied: Tests 3.0→3.5, HASE 3.5→4.0, weighted 3.80→**3.95** (same verdict band).
+> **Revision 2026-07-08**: this branch added the CI pipeline (`.github/workflows/ci.yml` —
+> both-OS test matrix, audit/dist-drift/PSSA gates, dispatch-only Windows E2E probe;
+> rationale in [CI-DECISION-RECORD.md](CI-DECISION-RECORD.md)), fixed 5 `npm audit`
+> advisories (2 high), and untracked 2,267 vendored `node_modules` files. First CI runs
+> observed green (Actions run 28933079883). Tests 3.0→3.5, HASE 3.5→4.0, weighted
+> 3.80→3.95.
+>
+> **Revision 2026-07-10**: the dispatched live Windows E2E probe achieved a **complete
+> green run** on a real `windows-latest` runner (Actions run 29059674872) — cert/auth-key
+> generation, TLS `serve` launch, confirmed listening, HTTPS reachable, idempotent relaunch
+> correctly a no-op, status, clean stop. This also validated `winget`-based `uv` install
+> (adopted from Copilot's 2nd review, corrected after the auto-generated fix shipped
+> invalid YAML — see PR history) and the launch-readiness check that same review requested.
+> Correctness 4.0→4.5, Tests 3.5→4.5, HASE 4.0→4.5, weighted 3.95→**4.33** (same verdict
+> band — the remaining independent-review gap is what separates this from "exemplary").
 > Independent reviewers should score what they observe, not this history.
 
 ## Known limitations declared by the author (verify these are the only ones)
