@@ -31,10 +31,14 @@ door that invokes it via `spawn` with an **argv array**.
    unreadable.
 
 3. **"Launch once" = port-listen check *and* a PID lockfile**
-   (`%LOCALAPPDATA%\zellij-mcp\windows-mcp.pid`). There is an inherent TOCTOU
-   window between the check and `Start-Process`; acceptable for a single-operator
-   workstation, but if you add multi-agent concurrency, replace it with a named
-   mutex — don't just widen the check.
+   (`%LOCALAPPDATA%\zellij-mcp\windows-mcp.pid`). The TOCTOU window between the
+   check and `Start-Process` is closed by a `[System.Threading.Mutex]` with scope
+   `Global\ZellijWindowsMCP`. The entire critical section (from `Test-ServerRunning`
+   through `Set-Content $LockFile`) runs under the mutex; `WaitOne(30000)` gives
+   concurrent agents up to 30 s to finish before failing open. The PID lockfile is
+   written *inside* the mutex hold so the next agent to acquire it finds the server
+   already up and short-circuits. If you extend this with additional pre-launch state,
+   keep it inside the mutex or you reintroduce the race.
 
 4. **Interactive vs. non-interactive is a hard split.** `setup` prompts
    (`Read-Host`) for a human; MCP always passes `-NonInteractive`. An LLM-driven
@@ -63,6 +67,15 @@ door that invokes it via `spawn` with an **argv array**.
    escape, so `serve` can't parse its own config ("Invalid hex value") and never
    binds. `Repair-WindowsMcpConfig` rewrites the `ssl_*` lines to forward slashes
    (valid TOML, accepted by Windows). Upstream bug; found by the live CI probe.
+
+9. **Pin the upstream `windows-mcp` PyPI version.** All three `uvx` invocations
+   (`auth`, `serve`, `install`) use `"windows-mcp==$($script:WindowsMcpVersion)"`
+   (defined near the top of the script). Pinned to `0.8.2` — the version validated
+   by the live CI probe (2026-07-09, Actions run 29059674872). To upgrade: bump
+   `$script:WindowsMcpVersion`, run `npm test`, then run the `e2e-windows` dispatch
+   probe. See `docs/2026-07-10-action-record-mutex-pinning.md` for version history.
+   Do NOT revert to an unpinned `uvx windows-mcp` call — a breaking upstream release
+   would silently break every user's next launch with no change to this repository.
 
 ## Verifying PowerShell changes
 - Parser gate: `test/powershell-contract.test.js` runs the PowerShell language

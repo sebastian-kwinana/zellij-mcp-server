@@ -27,4 +27,4 @@ reviewing these files, actively verify:
 
 Do NOT flag as defects (intentional, see `.github/copilot-instructions.md`):
 committed `dist/`, untracked `node_modules/`, `-ExecutionPolicy Bypass` on our own
-shipped script, the quoted `test/*.test.js` glob, or the unpinned `uvx windows-mcp`.
+shipped script, or the quoted `test/*.test.js` glob.

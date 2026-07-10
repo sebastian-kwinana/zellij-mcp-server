@@ -86,6 +86,10 @@ $script:LogErr    = Join-Path $script:ConfigDir 'windows-mcp.err.log'
 $script:AuthLog   = Join-Path $script:ConfigDir 'windows-mcp.auth.out.log'
 $script:AuthErrLog = Join-Path $script:ConfigDir 'windows-mcp.auth.err.log'
 $script:ResultMarker = '__WINMCP_RESULT__'
+# Pinned upstream release. Bump this, run `npm test`, then run the e2e-windows
+# dispatch probe to confirm the new version works end-to-end before merging.
+# See docs/2026-07-10-action-record-mutex-pinning.md for version history.
+$script:WindowsMcpVersion = '0.8.2'
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -231,7 +235,7 @@ function Invoke-CertSetup {
     }
 
     New-Item -ItemType Directory -Force -Path $script:ConfigDir | Out-Null
-    $authArgs = @('windows-mcp', 'auth', '--transport', $Transport, '--host', $BindHost, '--port', "$Port", '--with-tls')
+    $authArgs = @("windows-mcp==$($script:WindowsMcpVersion)", 'auth', '--transport', $Transport, '--host', $BindHost, '--port', "$Port", '--with-tls')
     if ($Force) { $authArgs += '--force' }
 
     # Run under a timeout with stdout/stderr captured to files. `mkcert -install`
@@ -303,66 +307,91 @@ function Start-WindowsMcp {
     New-Item -ItemType Directory -Force -Path $script:ConfigDir | Out-Null
     Repair-WindowsMcpConfig  # defensive: also fix config.toml when launch is run standalone
 
-    if (Test-ServerRunning) {
-        $existingPid = Get-RunningPid
-        Write-Info "Windows-MCP already running (launch is a no-op). PID=$existingPid"
+    # Acquire a machine-wide named mutex to serialise concurrent launch attempts.
+    # In a multi-agent swarm (CAMSO / CAICEWAC), parallel agents frequently race
+    # to call Start-WindowsMcp simultaneously; without a mutex they each evaluate
+    # Test-ServerRunning as $false and spawn two competing server processes on the
+    # same port. The Global\ prefix makes the mutex visible across all Windows
+    # sessions and processes (elevated and non-elevated).
+    $mutex = [System.Threading.Mutex]::new($false, 'Global\ZellijWindowsMCP')
+    $mutexAcquired = $false
+    try {
+        # Wait up to 30 s for any concurrent launcher to finish. On timeout we
+        # proceed without the guard (fail-open for availability) but re-check the
+        # running state — a concurrent agent that succeeded will have written the
+        # lockfile, so we will still short-circuit below.
+        $mutexAcquired = $mutex.WaitOne(30000)
+        if (-not $mutexAcquired) {
+            Write-Warn 'Launch mutex not acquired within 30 s; concurrent agent may be launching. Proceeding.'
+        }
+
+        if (Test-ServerRunning) {
+            $existingPid = Get-RunningPid
+            Write-Info "Windows-MCP already running (launch is a no-op). PID=$existingPid"
+            Write-Result @{
+                action    = 'launch'
+                running   = $true
+                alreadyUp = $true
+                pid       = $existingPid
+                host      = $BindHost
+                port      = $Port
+                transport = $Transport
+                tls       = $true
+                url       = (Get-McpUrl)
+            }
+            return
+        }
+
+        $serveArgs = @("windows-mcp==$($script:WindowsMcpVersion)", 'serve', '--transport', $Transport, '--host', $BindHost, '--port', "$Port")
+        # Explicit overrides take precedence over config.toml when provided.
+        if ($AuthKey)     { $serveArgs += @('--auth-key', $AuthKey) }
+        if ($IpAllowlist) { $serveArgs += @('--ip-allowlist', $IpAllowlist) }
+        if ($CertFile -and $KeyFile) {
+            $serveArgs += @('--ssl-certfile', $CertFile, '--ssl-keyfile', $KeyFile)
+        }
+
+        Write-Info "Launching: uvx $($serveArgs -join ' ')"
+        $proc = Start-Process -FilePath 'uvx' -ArgumentList $serveArgs `
+            -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput $script:LogOut -RedirectStandardError $script:LogErr
+
+        # Confirm the server actually came up before reporting success. A fast exit
+        # (bad config, missing deps — e.g. the config.toml TOML-escape bug) must not
+        # be reported as running=true with a stale PID file. Wait up to ~20s for the
+        # process to still be alive AND the port to be listening.
+        $listening = $false
+        foreach ($i in 1..20) {
+            Start-Sleep -Seconds 1
+            if ($proc.HasExited) { break }
+            if (Test-PortListening -TcpPort $Port) { $listening = $true; break }
+        }
+        if ($proc.HasExited -or -not $listening) {
+            Write-Warn "Windows-MCP did not come up (exited=$($proc.HasExited), listening=$listening)."
+            if (Test-Path $script:LogErr) { Write-Info '--- serve stderr (tail) ---'; Get-Content $script:LogErr -Tail 25 -ErrorAction SilentlyContinue }
+            throw "windows-mcp serve failed to start listening on ${BindHost}:${Port} (see $script:LogErr)."
+        }
+
+        # Write the lockfile *inside* the mutex hold so that any waiting agent wakes
+        # up, re-evaluates Test-ServerRunning, finds the port listening or the PID
+        # file, and short-circuits rather than spawning a duplicate process.
+        Set-Content -Path $script:LockFile -Value $proc.Id -Encoding ascii
+        Write-Info "Windows-MCP started and listening. PID=$($proc.Id)  URL=$(Get-McpUrl)"
+        Write-Info "Logs: $script:LogOut  |  $script:LogErr"
+
         Write-Result @{
             action    = 'launch'
             running   = $true
-            alreadyUp = $true
-            pid       = $existingPid
+            alreadyUp = $false
+            pid       = $proc.Id
             host      = $BindHost
             port      = $Port
             transport = $Transport
             tls       = $true
             url       = (Get-McpUrl)
         }
-        return
-    }
-
-    $serveArgs = @('windows-mcp', 'serve', '--transport', $Transport, '--host', $BindHost, '--port', "$Port")
-    # Explicit overrides take precedence over config.toml when provided.
-    if ($AuthKey)     { $serveArgs += @('--auth-key', $AuthKey) }
-    if ($IpAllowlist) { $serveArgs += @('--ip-allowlist', $IpAllowlist) }
-    if ($CertFile -and $KeyFile) {
-        $serveArgs += @('--ssl-certfile', $CertFile, '--ssl-keyfile', $KeyFile)
-    }
-
-    Write-Info "Launching: uvx $($serveArgs -join ' ')"
-    $proc = Start-Process -FilePath 'uvx' -ArgumentList $serveArgs `
-        -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput $script:LogOut -RedirectStandardError $script:LogErr
-
-    # Confirm the server actually came up before reporting success. A fast exit
-    # (bad config, missing deps — e.g. the config.toml TOML-escape bug) must not
-    # be reported as running=true with a stale PID file. Wait up to ~20s for the
-    # process to still be alive AND the port to be listening.
-    $listening = $false
-    foreach ($i in 1..20) {
-        Start-Sleep -Seconds 1
-        if ($proc.HasExited) { break }
-        if (Test-PortListening -TcpPort $Port) { $listening = $true; break }
-    }
-    if ($proc.HasExited -or -not $listening) {
-        Write-Warn "Windows-MCP did not come up (exited=$($proc.HasExited), listening=$listening)."
-        if (Test-Path $script:LogErr) { Write-Info '--- serve stderr (tail) ---'; Get-Content $script:LogErr -Tail 25 -ErrorAction SilentlyContinue }
-        throw "windows-mcp serve failed to start listening on ${BindHost}:${Port} (see $script:LogErr)."
-    }
-
-    Set-Content -Path $script:LockFile -Value $proc.Id -Encoding ascii
-    Write-Info "Windows-MCP started and listening. PID=$($proc.Id)  URL=$(Get-McpUrl)"
-    Write-Info "Logs: $script:LogOut  |  $script:LogErr"
-
-    Write-Result @{
-        action    = 'launch'
-        running   = $true
-        alreadyUp = $false
-        pid       = $proc.Id
-        host      = $BindHost
-        port      = $Port
-        transport = $Transport
-        tls       = $true
-        url       = (Get-McpUrl)
+    } finally {
+        if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
     }
 }
 
@@ -397,7 +426,7 @@ function Get-Status {
 
 function Install-Task {
     if (-not (Assert-UvxAvailable)) { throw 'uvx is required to install the scheduled task.' }
-    $taskArgs = @('windows-mcp', 'install', '--transport', $Transport, '--host', $BindHost, '--port', "$Port")
+    $taskArgs = @("windows-mcp==$($script:WindowsMcpVersion)", 'install', '--transport', $Transport, '--host', $BindHost, '--port', "$Port")
     if ($Force) { $taskArgs += '--force' }
     Write-Info "Running: uvx $($taskArgs -join ' ')"
     & uvx @taskArgs

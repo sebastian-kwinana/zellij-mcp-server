@@ -68,8 +68,9 @@ probe (never a PR gate — by design).
 - **Quoted `"test/*.test.js"` glob** is intentional: Node 21+ expands it
   natively and consistently across POSIX/Windows. Bare `node --test` is avoided
   because it would sweep in non-test scripts (`test-detection.js`).
-- **`windows-mcp` is fetched unpinned via `uvx`** — a *known, documented*
-  follow-up (see HASE #11), not an oversight.
+- **`windows-mcp` is now pinned to `0.8.2`** via `$script:WindowsMcpVersion` in
+  `windows-mcp.ps1`. To upgrade, bump that variable, run `npm test`, and run the
+  `e2e-windows` dispatch probe. See `docs/2026-07-10-action-record-mutex-pinning.md`.
 
 ## Security model (one line)
 Loopback bind + TLS + optional auth key + optional IP allowlist; validated,
