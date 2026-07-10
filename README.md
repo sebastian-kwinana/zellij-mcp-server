@@ -81,7 +81,7 @@ Enterprise-grade security and performance features:
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/zellij-mcp-server.git
+git clone https://github.com/sebastian-kwinana/zellij-mcp-server.git
 cd zellij-mcp-server
 
 # Install dependencies
@@ -444,4 +444,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/yourusername/zellij-mcp-server).
+For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/sebastian-kwinana/zellij-mcp-server).
