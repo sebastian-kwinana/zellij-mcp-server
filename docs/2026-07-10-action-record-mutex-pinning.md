@@ -71,15 +71,16 @@ including elevated and non-elevated contexts.
   the mutex is released on all paths including exceptions.
 - Added a contract test asserting `Global\ZellijWindowsMCP` is present in the script.
 
-**Known residual — AbandonedMutexException:**
-If the PowerShell process is hard-killed (not via `Stop-WindowsMcp`) while holding the
-mutex, the .NET runtime marks the mutex as abandoned. The next `WaitOne` call throws
-`AbandonedMutexException`, which is NOT currently caught. In that scenario, the outer
-`catch` block in the dispatch section will catch it, emit a JSON error, and exit 1 —
-the MCP tool will report an error rather than launching the server. A future hardening
-pass should add a `catch [System.Threading.AbandonedMutexException]` that treats the
-catch as a successful acquisition (ownership is transferred on abandonment per the .NET
-contract) and logs a warning.
+**Residual — mutex timeout (fail-open):**
+If no other agent releases the mutex within 30 seconds, `WaitOne` returns `$false` and
+the function proceeds without the guard (fail-open for availability). On timeout the
+code still calls `Test-ServerRunning`, so if a concurrent agent succeeded during the
+wait it will be detected and the function short-circuits. A 30-second concurrent launch
+is unusual; normal startup completes in under 25 seconds.
+
+`AbandonedMutexException` (hard-kill of the mutex holder) **is** now caught and treated
+as successful acquisition — per the .NET contract, ownership transfers to the catching
+thread when a mutex is abandoned. A warning is logged.
 
 ---
 

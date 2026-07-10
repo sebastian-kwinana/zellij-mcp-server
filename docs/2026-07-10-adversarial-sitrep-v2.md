@@ -179,13 +179,13 @@ details.
 
 After the 2026-07-10 changes, the residual risks are:
 
-1. **Mutex orphan on hard kill.** If the PowerShell process holding the mutex is
-   killed with `taskkill /F` (not via `Stop-WindowsMcp`), the mutex is abandoned and
-   the .NET runtime will throw an `AbandonedMutexException` on the next `WaitOne` call.
-   The `WaitOne(30000)` call does NOT currently handle `AbandonedMutexException`.
-   Mitigation note: this is an edge case (hard-kill during the mutex-hold window, which
-   is typically < 25 seconds); a future hardening pass should wrap `WaitOne` in a
-   try/catch for `AbandonedMutexException` and treat it as a successful acquisition.
+1. **Mutex timeout (fail-open).** If a concurrent launcher holds the mutex for over
+   30 seconds, `WaitOne` returns `$false` and the function proceeds without the guard.
+   The code still calls `Test-ServerRunning` immediately after, so a concurrent agent
+   that completed during the wait will be detected and the function short-circuits.
+   A 30-second concurrent launch is unusual; normal startup completes in under 25 s.
+   `AbandonedMutexException` (holder hard-killed) **is handled** — caught and treated
+   as successful acquisition per the .NET contract; a warning is logged.
 
 2. **Version pin drift.** `0.8.2` is the known-working version as of 2026-07-09. The
    pin must be reviewed when upgrading; the script offers no automatic check. Document
