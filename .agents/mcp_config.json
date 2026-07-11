@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zellij-mcp": {
+      "command": "node",
+      "args": ["C:\\src\\github.com\\sebastian-kwinana\\zellij-mcp-server\\dist\\index.js"]
+    }
+  }
+}
