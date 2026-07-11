@@ -1,0 +1,12 @@
+# dist/ is committed on purpose (see AGENTS.md, CI's dist-drift gate) and was
+# authored on Linux (LF). Without this file, a Windows contributor's default
+# core.autocrlf=true silently threatens to rewrite these generated files to
+# CRLF on ordinary git operations (checkout/add), which would then permanently
+# fail CI's `git diff --exit-code` drift check on every future Linux CI run.
+# Discovered via the first-ever real-Windows-hardware build of this repo
+# (2026-07-11) — pure line-ending noise, zero real content drift, but the gap
+# was real: no .gitattributes existed to prevent it. See
+# docs/Provenance/Windows-MCP/2026-07-11-real-hardware-followon-tracking.md.
+dist/** text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
