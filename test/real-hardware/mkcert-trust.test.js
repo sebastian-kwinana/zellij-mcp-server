@@ -49,15 +49,19 @@ function isPortListening(port, host = '127.0.0.1', timeoutMs = 2000) {
 }
 
 test('mkcert CA is present in the current-user Windows trust store', skip, (t) => {
-  const out = execFileSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-Command',
-      "(Get-ChildItem Cert:\\CurrentUser\\Root | Where-Object { $_.Subject -like '*mkcert*' } | Measure-Object).Count",
-    ],
-    { timeout: 30000 }
-  ).toString().trim();
+  // Query the store via the .NET X509Store API directly, NOT the Cert:
+  // PSDrive -- on this real machine, `-NoProfile` (needed to keep this
+  // invocation deterministic) leaves the Certificate PSProvider's `Cert:`
+  // drive unmounted (a genuine environment nuance CI's tuned runners never
+  // surfaced), which made `Get-ChildItem Cert:\...` fail with "Cannot find
+  // drive". The X509Store API has no such dependency.
+  const script =
+    "$s = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root','CurrentUser'); " +
+    "$s.Open('ReadOnly'); " +
+    "($s.Certificates | Where-Object { $_.Subject -like '*mkcert*' } | Measure-Object).Count";
+  const out = execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {
+    timeout: 30000,
+  }).toString().trim();
   const count = Number(out);
   if (count === 0) {
     t.skip(
