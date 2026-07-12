@@ -45,6 +45,7 @@ uv run sfa_saweng_demo_runner_v1.py launch --dry-run
 import os
 import sys
 import re
+import time
 import argparse
 import subprocess
 from typing import Optional, Tuple, List
@@ -70,11 +71,28 @@ DEFAULT_LAYOUT_RELATIVE = "windows-mcp-real-hardware-e2e-v0.0.1.kdl"
 
 
 def get_layout_path(layout_arg: Optional[str]) -> Path:
-    """Resolve layout path relative to script's own location."""
+    """Resolve layout path relative to script's own location.
+
+    Always .resolve()d to an absolute path: the --background branch spawns a
+    breakaway child whose cwd is not guaranteed to match ours, so a relative
+    path could resolve differently inside the child (Grok cross-vendor review
+    finding, 2026-07-12).
+    """
     if layout_arg:
-        return Path(layout_arg)
+        return Path(layout_arg).resolve()
     script_dir = Path(__file__).parent
-    return script_dir / DEFAULT_LAYOUT_RELATIVE
+    return (script_dir / DEFAULT_LAYOUT_RELATIVE).resolve()
+
+
+def validate_session_name(session_name: str) -> bool:
+    """Reject names that break exact matching or could parse as CLI flags.
+
+    An empty name would make any-session match (str.startswith('') is always
+    True in the old prefix-matching code); a leading '-' could bind as a flag
+    in downstream CLIs. Conservative charset mirrors the repo's Validator
+    conventions. (Grok cross-vendor review finding, 2026-07-12.)
+    """
+    return bool(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', session_name))
 
 
 def strip_ansi(text: str) -> str:
@@ -83,54 +101,67 @@ def strip_ansi(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
-def session_exists(session_name: str) -> bool:
-    """Check if a zellij session exists."""
-    try:
-        result = subprocess.run(
-            ["zellij", "list-sessions"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode != 0:
-            return False
-        # Strip ANSI codes and look for the session name
-        clean_output = strip_ansi(result.stdout)
-        # Session name appears at start of line
-        for line in clean_output.split('\n'):
-            if line.strip().startswith(session_name):
-                return True
-        return False
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+def _list_sessions_lines() -> Optional[List[str]]:
+    """Return ANSI-stripped lines of `zellij list-sessions`, or None on error.
 
-
-def get_session_status(session_name: str) -> Optional[str]:
-    """
-    Get session status: 'current', 'exited', or None if not found.
+    encoding='utf-8', errors='replace': Windows' default locale decode (often
+    cp1252) raises UnicodeDecodeError on unexpected bytes, which was NOT in
+    the except clauses -- an uncaught-crash path for non-ASCII session names
+    (Grok cross-vendor review finding, 2026-07-12).
     """
     try:
         result = subprocess.run(
             ["zellij", "list-sessions"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5
         )
         if result.returncode != 0:
             return None
-        clean_output = strip_ansi(result.stdout)
-        for line in clean_output.split('\n'):
-            if line.strip().startswith(session_name):
-                # Check for (current) or (exited) markers
-                if "(current)" in line:
-                    return "current"
-                elif "(exited)" in line:
-                    return "exited"
-                else:
-                    return "running"
-        return None
+        return strip_ansi(result.stdout).split('\n')
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
+
+
+def _line_names_session(line: str, session_name: str) -> bool:
+    """EXACT first-field match against a `zellij list-sessions` line.
+
+    The original code used str.startswith(), a PREFIX match: target 'FY25'
+    would match session 'FY25-26.Q4', and an empty target matched everything.
+    Exact-match the first whitespace-delimited field instead (line format on
+    zellij 0.44.3: `NAME [Created ... ago] [(current)|(exited)]`).
+    (Grok cross-vendor review finding, 2026-07-12.)
+    """
+    fields = line.strip().split(None, 1)
+    return bool(fields) and fields[0] == session_name
+
+
+def session_exists(session_name: str) -> bool:
+    """Check if a zellij session with EXACTLY this name exists."""
+    lines = _list_sessions_lines()
+    if lines is None:
+        return False
+    return any(_line_names_session(line, session_name) for line in lines)
+
+
+def get_session_status(session_name: str) -> Optional[str]:
+    """
+    Get session status: 'current', 'exited', 'running', or None if not found.
+    """
+    lines = _list_sessions_lines()
+    if lines is None:
+        return None
+    for line in lines:
+        if _line_names_session(line, session_name):
+            if "(current)" in line:
+                return "current"
+            elif "(exited)" in line:
+                return "exited"
+            else:
+                return "running"
+    return None
 
 
 def cmd_status(args) -> int:
@@ -176,9 +207,19 @@ def cmd_launch(args) -> int:
         console.print(f"[dim]Would run:[/dim] {' '.join(cmd)}")
         return 0
 
-    # Idempotent: check if already exists (mirrors mutex philosophy)
-    if session_exists(args.session_name):
-        console.print(f"[green][OK][/green] Session '[bold]{args.session_name}[/bold]' already exists; skipping creation")
+    # Idempotent: check if already exists (mirrors mutex philosophy).
+    # But an (exited) session is NOT "already good": relaunch would silently
+    # no-op forever and never re-apply the layout (Grok cross-vendor review
+    # finding, 2026-07-12). Surface it and refuse, with the fix spelled out.
+    existing_status = get_session_status(args.session_name)
+    if existing_status == "exited":
+        console.print(
+            f"[red][FAIL][/red] Session '[bold]{args.session_name}[/bold]' exists but is [bold]exited[/bold] "
+            f"(resurrectable). Run `stop` first (kills + cleans it), then `launch` again."
+        )
+        return 1
+    if existing_status is not None:
+        console.print(f"[green][OK][/green] Session '[bold]{args.session_name}[/bold]' already exists ({existing_status}); skipping creation")
         return 0
 
     # Create the session.
@@ -264,6 +305,25 @@ def cmd_launch(args) -> int:
             )
 
         if result.returncode == 0:
+            if args.background:
+                # POST-CONDITION CHECK (Grok cross-vendor review finding,
+                # 2026-07-12): a 0 return code from the -b client is NOT proof
+                # the session survived -- the documented upstream residual
+                # (ApplyLayout/QueryTerminalSize self-termination, see comment
+                # above and GitHub Issue #7) makes the session vanish seconds
+                # AFTER a "successful" create. Verify it is actually still
+                # alive before claiming success; fail closed otherwise.
+                time.sleep(4)
+                if session_exists(args.session_name):
+                    console.print(f"[green][OK][/green] Workspace launched and verified alive (session: '[bold]{args.session_name}[/bold]')")
+                    return 0
+                console.print(
+                    f"[red][FAIL][/red] Background session '[bold]{args.session_name}[/bold]' was created but "
+                    f"self-terminated within seconds -- this is the known zellij-0.44.3/Windows "
+                    f"`attach -b` + custom --layout limitation (GitHub Issue #7). "
+                    f"Use interactive `launch` (no --background) instead."
+                )
+                return 1
             console.print(f"[green][OK][/green] Workspace launched successfully (session: '[bold]{args.session_name}[/bold]')")
             return 0
         else:
@@ -369,7 +429,10 @@ def cmd_stop(args) -> int:
     """
     Stop the workspace (idempotent).
     Only kill if session exists.
-    Exit 0 in all cases.
+    Exit 0 on success or nothing-to-do; exit 1 on a real failure
+    (kill error / zellij missing) -- docstring previously claimed
+    "exit 0 in all cases", contradicting the code; the code's behavior
+    matches the repo exit-code convention and is what's kept.
     """
     if args.dry_run:
         if session_exists(args.session_name):
@@ -545,6 +608,16 @@ def main():
     subparsers.add_parser("doctor", help="Run preflight checks", parents=[common_parser])
 
     args = parser.parse_args()
+
+    # Validate session name before any zellij interaction (empty names made
+    # the old prefix-matching match EVERY session; leading '-' could bind as
+    # a downstream CLI flag). Only for subcommands that carry the flag.
+    if getattr(args, "session_name", None) is not None and not validate_session_name(args.session_name):
+        console.print(
+            f"[red][FAIL][/red] Invalid --session-name {args.session_name!r}: must match "
+            f"[bold][A-Za-z0-9][A-Za-z0-9_.-]{{0,127}}[/bold] (non-empty, no leading '-')"
+        )
+        return 1
 
     # Dispatch to subcommand
     if args.command == "status":
