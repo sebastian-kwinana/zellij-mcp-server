@@ -88,8 +88,18 @@ test('TLS handshake to the live server succeeds WITHOUT -SkipCertificateCheck', 
   // Any HTTP status here (including 401, since auth is on) over a SUCCESSFUL
   // TLS handshake proves the OS trusts the cert -- an untrusted cert would
   // throw before any status is ever returned.
+  //
+  // Uses `pwsh` (PowerShell 7+), NOT `powershell.exe` (5.1), deliberately:
+  // -SkipHttpErrorCheck is a PS7+-only Invoke-WebRequest parameter (does not
+  // exist in Windows PowerShell 5.1, where it throws
+  // ParameterBindingException and silently yields an empty string here --
+  // found via a real run on 2026-07-11). This test is about cert TRUST, not
+  // PowerShell-version compatibility (that's powershell51-compat.test.js's
+  // job) -- using pwsh holds the PS-version variable constant against CI's
+  // own e2e-windows probe (which also always uses pwsh), isolating cert
+  // trust as the one thing genuinely under test here.
   const out = execFileSync(
-    'powershell.exe',
+    'pwsh',
     [
       '-NoProfile',
       '-Command',

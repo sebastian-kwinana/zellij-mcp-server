@@ -48,15 +48,23 @@ connect" line above and should not be confused with a real registration defect.
 
 ## What remains before the live cross-agent messaging round trip
 
-Two things, both genuinely requiring the user, not further automatable from this
-session:
-1. **C.1's mkcert trust step** (see the test-results Provenance record) — needed
-   before Windows-MCP itself is reachable for any cross-agent status check.
-2. **This session must itself be running inside an actual Zellij session** for
-   `zellij_write_to_pane`/`zellij_dump_screen` to have anything to act on — they
-   operate on the *calling* process's own Zellij session context. This raw
-   `bash.exe`/PowerShell-in-Windows-Terminal session is not currently inside one. The
-   approved plan anticipated this: the user relaunches via
+**Update:** C.1's mkcert trust step is now ✅ complete (human-executed by Sebastian,
+7/7 real-hardware tests pass) — see the test-results Provenance record.
+
+**Correction to this record's original framing:** it turns out this session was
+*already* running inside an active Zellij session the whole time
+(`BizOps_FY2025-2026`) — the original "not inside a Zellij session" diagnosis was
+wrong. The real, remaining blocker is more specific: **this session's own MCP tool
+set was fixed at session start** and does not include `zellij-mcp` (or any
+`zellij_*` tool) at all — confirmed via `ToolSearch` returning zero matches for any
+zellij-related query, regardless of terms tried. `claude mcp add zellij-mcp -- ...`
+(run earlier in this same session) updates the *persistent* CLI config for
+future/reconnected sessions; it does not retroactively inject the tool into an
+already-running one. So the live cross-agent messaging round trip still needs a
+session reload of some kind — not because of a Zellij-context requirement (that part
+is already satisfied), but because of MCP-tool-set loading. The approved plan's
+relaunch step (which was going to be needed anyway, for the dedicated
+CAMSO-mapped KDL layout) resolves this as a side effect. The user relaunches via
    `zellij --layout windows-mcp-real-hardware-e2e-v0.0.1.kdl attach -c windows-mcp-real-hardware-e2e-v001`
    (layout written to
    `B:\_KwinanaAIContextEngineering\specifications\CAICEWAC\workspaces\`), after which
