@@ -4,8 +4,17 @@
 // they cannot surface the class of AV interference a real, unmanaged Windows
 // workstation can. This test is deliberately observe-only: it adds no
 // exclusions, disables nothing, and only reads Defender's own reported state.
-// Run first in the C.4->C.2->C.3->C.1 sequence to establish a clean baseline
-// before the more invasive tests (C.1 especially) run.
+// Historical note: an earlier version of this comment recommended running
+// C.4->C.2->C.3->C.1 in that order to "establish a clean baseline". That
+// framing understated the real risk: Node's `node --test` CLI runs multiple
+// matched files CONCURRENTLY by default (not sequentially), so relying on
+// any file order -- including this one -- was never a safe guarantee, only
+// an accident of alphabetical glob sort plus an incorrectly-assumed
+// sequential execution model. See docs/Provenance/Windows-MCP/
+// 2026-07-12-test-suite-ordering-hazard.md for the empirical finding and
+// mkcert-trust.test.js for how that file now self-provisions its own
+// precondition instead of depending on this file (or any file) running
+// first. This file itself has no side effects and needs no such fix.
 //
 // Requires REQUIRES_REAL_HARDWARE=1 and a real (non-CI) Windows host. Never
 // wired into `npm test`'s glob (test/*.test.js does not recurse into this

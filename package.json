@@ -10,7 +10,7 @@
     "dev": "tsc --watch",
     "test": "npm run build && node --test \"test/*.test.js\"",
     "test:integration": "npm run build && node test-windows-mcp.js",
-    "test:real-hardware": "npm run build && node --test \"test/real-hardware/*.test.js\""
+    "test:real-hardware": "npm run build && node --test --test-concurrency=1 \"test/real-hardware/*.test.js\""
   },
   "keywords": ["mcp", "zellij", "terminal", "workspace"],
   "author": "Jordan",

@@ -42,6 +42,41 @@ step* — a human clicking through the Windows trust-store prompt — that canno
 automated in CI even in principle. Treat any change that would make this directory
 runnable unattended in CI as a sign you've misunderstood what these tests are for.
 
+## Files here share live OS state — write order-INDEPENDENT tests, not order-dependent ones
+
+**Node's `node --test` CLI runs multiple matched files CONCURRENTLY by default** — the
+documented `--test-concurrency` default is `os.availableParallelism() - 1`, not `1`.
+This is a genuinely different default than the `node:test` JS `run()` API's
+(`concurrency: false`, sequential) — easy to miss if you only check the API docs page
+and not the CLI flags page. Empirically reproduced 2026-07-12; see
+`docs/Provenance/Windows-MCP/2026-07-12-test-suite-ordering-hazard.md` for the full
+finding, including a real bug it caused (`mkcert-trust.test.js`'s TLS check racing
+against `powershell51-compat.test.js`'s `-Action stop`).
+
+Every file in this directory ultimately shares machine-wide, live state: port 8000,
+`%LOCALAPPDATA%\zellij-mcp\windows-mcp.pid`, `~/.windows-mcp/config.toml`, the Windows
+cert store. Two rules follow, both load-bearing for any new file added here:
+
+1. **If your test needs the server running, make it self-sufficient.** Do not assume
+   another file (or a human, in this exact invocation) already launched it and left it
+   running — that assumption is exactly what caused the bug above. `-Action launch` is
+   idempotent and mutex-guarded (`Global\ZellijWindowsMCP` — `scripts/windows/AGENTS.md`
+   lesson 3), so it's safe to call unconditionally at the top of your test. Only
+   fall back to `t.skip(...)` for the genuinely non-automatable precondition (a human
+   having clicked through the interactive mkcert trust dialog at least once, ever) —
+   see `mkcert-trust.test.js` for the pattern.
+2. **`test:real-hardware` forces `--test-concurrency=1`** (`package.json`) as
+   defense-in-depth on top of rule 1 — do not remove that flag without re-reading this
+   section. It is deliberately scoped to this script only; `npm test`'s unit suite has
+   zero cross-file shared-state edges (confirmed by dedicated analysis) and gains
+   nothing from forced sequencing.
+
+If you genuinely cannot make a new test self-sufficient (e.g. it must observe a
+*transition*, not just a steady state), do not rely on filename sort order to sequence
+it — that ordering is an **undocumented Node implementation detail**, not a contract.
+Say so explicitly in a comment and treat it as a known, accepted limitation, not an
+invisible assumption.
+
 ## Evidence goes in Provenance, not just test output
 
 Each real-hardware test run this directory produces should have a corresponding dated

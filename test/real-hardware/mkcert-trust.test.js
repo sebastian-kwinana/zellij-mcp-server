@@ -26,9 +26,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import net from 'node:net';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const onWindows = os.platform() === 'win32';
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const launcherScript = path.join(repoRoot, 'scripts', 'windows', 'windows-mcp.ps1');
 const flagged = process.env.REQUIRES_REAL_HARDWARE === '1';
 const skip = !onWindows || !flagged
   ? { skip: !onWindows ? 'requires a Windows host' : 'set REQUIRES_REAL_HARDWARE=1 to run' }
@@ -75,11 +79,35 @@ test('mkcert CA is present in the current-user Windows trust store', skip, (t) =
 });
 
 test('TLS handshake to the live server succeeds WITHOUT -SkipCertificateCheck', skip, async (t) => {
+  // Self-sufficient precondition -- do NOT assume another file (or a human,
+  // in this exact invocation) left the server running. Node's `node --test`
+  // CLI runs multiple matched files CONCURRENTLY by default (documented
+  // --test-concurrency default is os.availableParallelism()-1, empirically
+  // reproduced 2026-07-12 -- see docs/Provenance/Windows-MCP/
+  // 2026-07-12-test-suite-ordering-hazard.md), so powershell51-compat.test.js's
+  // `-Action stop` can run before OR during this test non-deterministically;
+  // this already forced a manual `-Action launch` workaround once for real
+  // (see the 2026-07-11 test-results record). `-Action launch` is idempotent
+  // and mutex-guarded (Global\ZellijWindowsMCP -- scripts/windows/AGENTS.md
+  // lesson 3), so it is safe to call unconditionally here regardless of
+  // execution order or how many other real-hardware files are mid-run.
+  try {
+    execFileSync(
+      'pwsh',
+      ['-NoProfile', '-File', launcherScript, '-Action', 'launch', '-NonInteractive'],
+      { timeout: 60000 }
+    );
+  } catch {
+    // Fall through to the port check below -- if launch failed (e.g. cert
+    // never set up), that's reported as "not set up yet", not swallowed.
+  }
+
   const up = await isPortListening(8000);
   if (!up) {
     t.skip(
-      'no server listening on 127.0.0.1:8000 -- run the interactive setup step ' +
-        '(see file header) before this test can exercise the trust postcondition'
+      'no server could be brought up on 127.0.0.1:8000 -- run `pwsh -File ' +
+        'scripts/windows/windows-mcp.ps1 -Action setup` interactively (no ' +
+        '-SkipMkcertInstall) at least once before this test can pass'
     );
     return;
   }

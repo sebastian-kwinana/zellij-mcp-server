@@ -45,6 +45,16 @@ test('windows-mcp.ps1 -Action status runs under Windows PowerShell 5.1 (not pwsh
   );
 });
 
+// NOTE for future editors of this directory: this test genuinely stops any
+// tracked windows-mcp server as a side effect (that's what it's testing).
+// Because Node's `node --test` CLI runs multiple matched files concurrently
+// by default, this can race with other files in this directory that need a
+// live server (see docs/Provenance/Windows-MCP/
+// 2026-07-12-test-suite-ordering-hazard.md). `test:real-hardware` now forces
+// --test-concurrency=1 as defense-in-depth, but any NEW file added here that
+// needs the server running should still self-provision it (see
+// mkcert-trust.test.js's `-Action launch` pattern) rather than assume this
+// file hasn't run yet.
 test('windows-mcp.ps1 -Action stop is a safe no-op under PowerShell 5.1 when nothing is running', skip, () => {
   const out = execFileSync(
     'powershell.exe',
