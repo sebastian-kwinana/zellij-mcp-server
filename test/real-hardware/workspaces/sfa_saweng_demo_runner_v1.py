@@ -170,9 +170,9 @@ def cmd_launch(args) -> int:
 
     if args.dry_run:
         if args.background:
-            cmd = ["zellij", "attach", args.session_name, "-l", str(layout_path), "-b"]
+            cmd = ["zellij", "--layout", str(layout_path), "attach", "-b", args.session_name]
         else:
-            cmd = ["zellij", "attach", args.session_name, "-l", str(layout_path), "-c"]
+            cmd = ["zellij", "--layout", str(layout_path), "attach", "-c", args.session_name]
         console.print(f"[dim]Would run:[/dim] {' '.join(cmd)}")
         return 0
 
@@ -181,19 +181,87 @@ def cmd_launch(args) -> int:
         console.print(f"[green][OK][/green] Session '[bold]{args.session_name}[/bold]' already exists; skipping creation")
         return 0
 
-    # Create the session
+    # Create the session.
+    #
+    # `--layout` is a GLOBAL zellij option (appears in `zellij --help`, NOT in
+    # `zellij attach --help`) and must precede the `attach` subcommand; `attach`
+    # itself only understands `-b/--create-background` and `-c/--create` for
+    # "create if missing". Verified empirically against zellij 0.44.3 on this
+    # machine (`zellij --help`, `zellij attach --help`) and matches the
+    # canonical invocation documented in the layout file's own header.
+    #
+    # KNOWN RESIDUAL (--background only, zellij 0.44.3 on this Windows build):
+    # `zellij --layout <path> attach -b <name>` can self-terminate a few
+    # seconds after creation -- verified via `zellij --debug`, whose log shows
+    # `ApplyLayout` repeatedly issuing `QueryTerminalSize` to a client that was
+    # never actually attached (that's the entire point of `-b`), each query
+    # timing out ("NewTab did not complete within 1s timeout"), until the
+    # server exits. Reproduces even with a trivial one-pane custom layout
+    # (`--layout-string 'layout { pane; }'`), so it is not specific to this
+    # workspace's tab/plugin count -- it is `-b` + ANY custom `--layout`. A
+    # bare `attach -b <name>` with NO `--layout` (zellij's built-in default)
+    # persists reliably. This looks like an upstream zellij/Windows limitation
+    # (ApplyLayout's terminal-size negotiation has no client to answer it in
+    # headless mode) rather than an invocation-flag bug -- the flags above are
+    # independently verified correct, and are exactly what the layout file's
+    # own header prescribes. Not fixable from this wrapper script alone.
     try:
         if args.background:
-            # Create detached session in background
-            result = subprocess.run(
-                ["zellij", "attach", args.session_name, "-l", str(layout_path), "-b"],
-                timeout=10
+            # Create detached session in background; process returns once the
+            # session is up (does not block for the session's lifetime).
+            #
+            # Deliberately subprocess.Popen(..., creationflags=...) here, not
+            # subprocess.run(): empirically, a plain subprocess.run() child on
+            # Windows inherits the INVOKING process's Job Object, and a Job
+            # Object with kill-on-close semantics (the norm for CI runners,
+            # containers, and agent/automation harnesses -- confirmed on this
+            # machine's own tool harness) kills every descendant, including
+            # this "detached" zellij session, the moment the invoking
+            # process/job tears down. `zellij attach -b` itself reports exit 0
+            # and the session is briefly visible in `zellij list-sessions`,
+            # then silently vanishes -- so this is not visible from the
+            # immediate return code alone. CREATE_BREAKAWAY_FROM_JOB detaches
+            # the child from that job (only viable if the job permits
+            # breakaway, which it does here); CREATE_NEW_PROCESS_GROUP +
+            # CREATE_NO_WINDOW keep it from being tied to this console.
+            # Verified by launching, then checking `zellij list-sessions` from
+            # a brand-new shell invocation (i.e. after the launching
+            # process/job has fully exited) and confirming the session is
+            # still present.
+            creationflags = 0
+            if os.name == "nt":
+                creationflags = (
+                    subprocess.CREATE_NEW_PROCESS_GROUP
+                    | subprocess.CREATE_BREAKAWAY_FROM_JOB
+                    | subprocess.CREATE_NO_WINDOW
+                )
+            proc = subprocess.Popen(
+                ["zellij", "--layout", str(layout_path), "attach", "-b", args.session_name],
+                creationflags=creationflags,
             )
+            try:
+                returncode = proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                # The client process handing off to the now-breakaway'd
+                # background session can legitimately outlive our wait
+                # window; treat as fire-and-forget rather than a failure.
+                returncode = 0
+            result = subprocess.CompletedProcess(proc.args, returncode)
         else:
-            # Create and attach interactively (exec replaces this process)
-            os.execvp("zellij", ["zellij", "attach", args.session_name, "-l", str(layout_path), "-c"])
-            # execvp never returns on success
-            return 0
+            # Create-and-attach interactively. Deliberately subprocess.run()
+            # here, not os.execvp(): Windows has no real fork/exec, so
+            # CPython emulates os.execvp() as spawn-then-wait-then-exit,
+            # which behaves inconsistently across terminal hosts (can spawn
+            # a second console window, decouple/lose the child's exit code,
+            # and break Ctrl-C forwarding to the child). subprocess.run()
+            # blocks deterministically on the child and its returncode is
+            # forwarded explicitly below via the normal return path, which is
+            # both more predictable on Windows and actually testable
+            # (--dry-run can show the exact argv without relying on exec
+            # semantics that never return control to this function).
+            result = subprocess.run(
+                ["zellij", "--layout", str(layout_path), "attach", "-c", args.session_name],
+            )
 
         if result.returncode == 0:
             console.print(f"[green][OK][/green] Workspace launched successfully (session: '[bold]{args.session_name}[/bold]')")
@@ -336,18 +404,24 @@ def cmd_stop(args) -> int:
 def cmd_doctor(args) -> int:
     """
     Preflight checks.
-    Exit 0 if all pass, 4 if any check fails.
-    """
-    checks_passed = 0
-    checks_total = 5
+    Exit 0 if all HARD checks pass, 4 if any HARD check fails.
 
-    # Check 1: zellij on PATH + version
+    Checks 1-3 (zellij present, layout exists, braces balanced) are HARD
+    requirements and must ALL pass. Checks 4-5 (session existence, API key)
+    are purely informational/optional and never count toward pass/fail --
+    a fresh-checkout doctor run with no session yet created and no API key
+    set is still a healthy result.
+    """
+    hard_checks_passed = 0
+    hard_checks_total = 3
+
+    # Check 1 (HARD): zellij on PATH + version
     try:
         result = subprocess.run(["zellij", "--version"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             version = strip_ansi(result.stdout).strip()
             console.print(f"[green][OK][/green] zellij found: {version}")
-            checks_passed += 1
+            hard_checks_passed += 1
         else:
             console.print("[red][FAIL][/red] zellij --version failed")
     except FileNotFoundError:
@@ -355,15 +429,15 @@ def cmd_doctor(args) -> int:
     except Exception as e:
         console.print(f"[red][FAIL][/red] zellij version check failed: {e}")
 
-    # Check 2: layout file exists
+    # Check 2 (HARD): layout file exists
     layout_path = get_layout_path(args.layout)
     if layout_path.exists():
         console.print(f"[green][OK][/green] Layout file exists: {layout_path}")
-        checks_passed += 1
+        hard_checks_passed += 1
     else:
         console.print(f"[red][FAIL][/red] Layout file not found: {layout_path}")
 
-    # Check 3: layout file has balanced braces
+    # Check 3 (HARD): layout file has balanced braces
     if layout_path.exists():
         try:
             content = layout_path.read_text(encoding='utf-8')
@@ -371,70 +445,85 @@ def cmd_doctor(args) -> int:
             close_count = content.count('}')
             if open_count == close_count:
                 console.print(f"[green][OK][/green] Layout file braces balanced ({open_count} pairs)")
-                checks_passed += 1
+                hard_checks_passed += 1
             else:
                 console.print(f"[red][FAIL][/red] Layout file braces unbalanced: {open_count} {{ vs {close_count} }}")
         except Exception as e:
             console.print(f"[red][FAIL][/red] Failed to check layout file: {e}")
+    else:
+        console.print("[red][FAIL][/red] Skipping brace-balance check; layout file missing")
 
-    # Check 4: session existence
+    # Check 4 (INFORMATIONAL): session existence -- never affects pass/fail
     if session_exists(args.session_name):
         status = get_session_status(args.session_name)
         console.print(f"[yellow][INFO][/yellow] Session '[bold]{args.session_name}[/bold]' exists ({status})")
-        checks_passed += 1
     else:
         console.print(f"[yellow][INFO][/yellow] Session '[bold]{args.session_name}[/bold]' does not exist (expected on first run)")
-        checks_passed += 1  # This is not a failure; just informational
 
-    # Check 5: ANTHROPIC_API_KEY presence
+    # Check 5 (INFORMATIONAL): ANTHROPIC_API_KEY presence -- never affects pass/fail
     if os.environ.get("ANTHROPIC_API_KEY"):
         console.print("[green][OK][/green] ANTHROPIC_API_KEY is set")
-        checks_passed += 1
     else:
         console.print("[yellow][INFO][/yellow] ANTHROPIC_API_KEY not set (AI features will be unavailable)")
-        checks_passed += 1  # Not a failure; AI is optional
 
     # Final summary
     console.print()
-    if checks_passed >= 3:  # Require at least zellij, layout, and braces
+    if hard_checks_passed >= hard_checks_total:
         console.print("[green][OK][/green] [bold]Preflight checks passed[/bold]")
         return 0
     else:
-        console.print("[red][FAIL][/red] [bold]Preflight checks failed[/bold]")
+        console.print(f"[red][FAIL][/red] [bold]Preflight checks failed[/bold] ({hard_checks_passed}/{hard_checks_total} hard checks passed)")
         return 4
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="SAWEng Demo-Runner: Idempotent Zellij workspace launcher for CAICEWAC demonstrations"
-    )
-
-    # Global flags
-    parser.add_argument(
+    # `--layout`/`--session-name`/`--dry-run` are shared by every subcommand.
+    # They live ONLY on a `parents=[]` template (add_help=False to avoid a
+    # duplicate -h/--help) attached to each subparser -- deliberately NOT
+    # also attached to the top-level `parser`. Putting the same dest on both
+    # the main parser and a subparser is an argparse footgun: argparse's
+    # `_SubParsersAction.__call__` parses the subcommand's arguments into a
+    # *fresh* namespace and then unconditionally `setattr`s every one of its
+    # attributes onto the shared namespace -- including its own defaults --
+    # so `prog --layout X doctor` would have its `--layout X` SILENTLY
+    # clobbered back to the subparser's `default=None`. Confirmed empirically
+    # on this machine: that exact invocation returned exit 0 ("passed") while
+    # actually still reading the DEFAULT layout file, not the nonexistent one
+    # the caller asked to check. Restricting the flags to subparsers only
+    # means every invocation must place them after the subcommand
+    # (`prog launch --dry-run`, `prog doctor --layout X`), which matches this
+    # script's own docstring examples and is unambiguous -- there is no
+    # global-only invocation form left to silently misparse.
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument(
         "--layout",
         type=str,
         default=None,
         help=f"Path to layout file (default: {DEFAULT_LAYOUT_RELATIVE} relative to script location)"
     )
-    parser.add_argument(
+    common_parser.add_argument(
         "--session-name",
         type=str,
         default=DEFAULT_SESSION_NAME,
         help=f"Zellij session name (default: {DEFAULT_SESSION_NAME})"
     )
-    parser.add_argument(
+    common_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print commands but do not execute"
     )
 
+    parser = argparse.ArgumentParser(
+        description="SAWEng Demo-Runner: Idempotent Zellij workspace launcher for CAICEWAC demonstrations"
+    )
+
     subparsers = parser.add_subparsers(dest="command", help="Subcommand to run")
 
     # status subcommand
-    subparsers.add_parser("status", help="Check if session exists and report status")
+    subparsers.add_parser("status", help="Check if session exists and report status", parents=[common_parser])
 
     # launch subcommand
-    launch_parser = subparsers.add_parser("launch", help="Idempotently launch the workspace")
+    launch_parser = subparsers.add_parser("launch", help="Idempotently launch the workspace", parents=[common_parser])
     launch_parser.add_argument(
         "--background",
         action="store_true",
@@ -442,7 +531,7 @@ def main():
     )
 
     # describe subcommand
-    describe_parser = subparsers.add_parser("describe", help="Describe the workspace")
+    describe_parser = subparsers.add_parser("describe", help="Describe the workspace", parents=[common_parser])
     describe_parser.add_argument(
         "--ai",
         action="store_true",
@@ -450,10 +539,10 @@ def main():
     )
 
     # stop subcommand
-    subparsers.add_parser("stop", help="Stop the workspace (idempotent)")
+    subparsers.add_parser("stop", help="Stop the workspace (idempotent)", parents=[common_parser])
 
     # doctor subcommand
-    subparsers.add_parser("doctor", help="Run preflight checks")
+    subparsers.add_parser("doctor", help="Run preflight checks", parents=[common_parser])
 
     args = parser.parse_args()
 
