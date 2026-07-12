@@ -1,0 +1,165 @@
+// =====================================================================
+// CAICEWAC Workspace-as-Code :: windows-mcp-real-hardware-e2e-v0.0.1
+// =====================================================================
+// Framework : CAICEWAC (Cognitive Architecture Inspired Context
+//             Engineered Workspaces As Code)
+// Ontology  : CAMSO-Core (A -> W -> S -> M)
+//             This Zellij session == an Agentic System (S).
+//             Each tab == a Workspace (W) hosting Agent(s) (A).
+//             Claude (this session) + human operate at Meta-System (M) tier.
+//             grok/agy/claude#2 hosted as MESSAGE RECIPIENTS this round —
+//             single-writer discipline for v0.0.1 (see Provenance doc for why).
+// Principle : Tab order (left -> right) encodes the cognitive workflow:
+//             leader(M) -> sources -> planning(GFSM/KEPEK) -> live hero-test
+//             -> recipients(grok/claude2/agy) -> monitor/observability -> review
+// Author    : Claude Code (in-terminal session), per user-approved plan
+// Created   : 2026-07-11 | v0.0.1 (PromptVer-TDD "Make it Boot")
+// Moved     : 2026-07-12 into this repo at test/real-hardware/workspaces/ —
+//             establishing the per-test-category workspaces/ directory as the
+//             foundational, self-documenting filesystem pattern for future
+//             MAIESAW ("Metacognitive Agentic Intelligent Entities Situated
+//             Attention Workspace") Engine work (predecessor acronym: MAWE).
+//             The out-of-tree specifications dir it originated in is reserved
+//             for production-ready reusable reference specs, not in-dev files.
+// Based on  : the operator's CAICEWAC reference precedent
+//             spof-agy-caicewac-v0.0.1.kdl and the 2026-06-24 zellij session
+//             snapshot (both in the out-of-tree specifications library).
+// KEPEK     : GFSM (?+_-!~), PromptVer-TDD, TaskAgent AIOP applied throughout.
+// Launch    : zellij --layout test/real-hardware/workspaces/windows-mcp-real-hardware-e2e-v0.0.1.kdl attach -c windows-mcp-real-hardware-e2e-v001
+//             (from the repo root; or use the SAWEng demo-runner script in
+//             test/real-hardware/workspaces/ once available)
+// Note      : Recipient tabs (40/50/60) are start_suspended=true — prepared but
+//             NOT auto-launched on layout load. The leader (M-tier, tab 00)
+//             deliberately resumes each one, one at a time, as a controlled
+//             probe (Cynefin: Complex domain, probe-sense-respond) — never
+//             all three unattended and concurrent in v0.0.1.
+// Ref       : docs/Provenance/Windows-MCP/2026-07-11-multi-harness-registration-demo.md
+//             (zellij-mcp-server repo) records the triadic decision-framework
+//             debate that resolved single-writer discipline for this round.
+// =====================================================================
+
+layout {
+    cwd "C:\\src\\github.com\\sebastian-kwinana\\zellij-mcp-server"
+
+    tab name="00_leader-claude-M" focus=true {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane {
+            // Leader pane: this Claude Code session drives tab-switches +
+            // zellij_write_to_pane / zellij_dump_screen for the v0.0.1 demo.
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="10_sources-assurance" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane cwd="docs\\Assurance" {
+            // Read HASE-COMPLIANCE.md, CONFIDENCE-RUBRIC.md, SECOND-OPINION-CST.md
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="20_planning-gfsm" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane {
+            // GFSM state tracking, PromptVer-TDD stage notes for this workstream
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="30_windows-mcp-live-hero-test" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane cwd="scripts\\windows" {
+            // C.1: pwsh -File windows-mcp.ps1 -Action setup (interactive,
+            // no -SkipMkcertInstall, no -NonInteractive) — the one human click
+            // on the mkcert Windows trust-store dialog CI can never answer.
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="40_grok-recipient" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane command="C:\\Users\\sebastian-kwinana\\.grok\\bin\\grok.exe" {
+            start_suspended true
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="50_claude2-recipient" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane command="C:\\Users\\sebastian-kwinana\\scoop\\shims\\claude.exe" {
+            start_suspended true
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="60_agy-recipient" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane command="C:\\Users\\sebastian-kwinana\\scoop\\shims\\agy.exe" {
+            start_suspended true
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="70_monitor-obs" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane {
+            // C.4 Defender/AV read-only checks; C.2 monitor-topology capture;
+            // C.3 PowerShell 5.1 full-suite run observation
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="80_review-provenance" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane cwd="docs\\Provenance\\Windows-MCP" {
+            // Write/review the dated Provenance records this workstream produces
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    new_tab_template {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane cwd="C:\\src\\github.com\\sebastian-kwinana\\zellij-mcp-server"
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+}

@@ -77,6 +77,29 @@ it — that ordering is an **undocumented Node implementation detail**, not a co
 Say so explicitly in a comment and treat it as a known, accepted limitation, not an
 invisible assumption.
 
+## `workspaces/` — CAICEWAC layouts + the SAWEng demo-runner live here
+
+`test/real-hardware/workspaces/` holds this category's Zellij
+Workspace-as-Code KDL layouts and their launch tooling, per
+[ADR-Workspaces-001](../../docs/ADRs/Workspaces/001-per-test-category-workspaces-directories.md)
+(per-category `workspaces/` directories are the foundational, self-documenting
+filesystem pattern for future MAIESAW-Engine work — do not consolidate them into
+a repo-root directory). Contents:
+
+- `windows-mcp-real-hardware-e2e-v0.0.1.kdl` — the CAMSO-Core-mapped
+  real-hardware E2E/demo workspace (leader + recipient tabs, single-writer
+  discipline; see its header).
+- `sfa_saweng_demo_runner_v1.py` — Single File Agent (uv script-header) runner
+  that idempotently launches/inspects/describes/stops that workspace. Invoke via
+  `uv run --script <path> <subcommand>`; `doctor` is the preflight,
+  `launch` is idempotent by session-name check (same philosophy as the
+  `Global\ZellijWindowsMCP` mutex), `describe --ai` optionally self-explains via
+  an Anthropic model but always degrades gracefully without a key.
+
+`*.test.js` files matching this directory's parent glob do NOT reach into
+`workspaces/` (single-level glob, same isolation as the parent directory enjoys
+from `npm test`). A KDL file here is data, not a test — tests/demos consume it.
+
 ## Evidence goes in Provenance, not just test output
 
 Each real-hardware test run this directory produces should have a corresponding dated

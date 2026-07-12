@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# Python (SAWEng demo-runner uses uv script-headers, which manage ephemeral
+# envs themselves — no committed venv; this covers any local dev venv)
+.venv/
+__pycache__/
+
 # Local reference clones (e.g. the Windows-MCP shallow clone) — reference only
 third_party/
 

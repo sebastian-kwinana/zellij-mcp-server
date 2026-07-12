@@ -65,8 +65,9 @@ session reload of some kind — not because of a Zellij-context requirement (tha
 is already satisfied), but because of MCP-tool-set loading. The approved plan's
 relaunch step (which was going to be needed anyway, for the dedicated
 CAMSO-mapped KDL layout) resolves this as a side effect. The user relaunches via
-   `zellij --layout windows-mcp-real-hardware-e2e-v0.0.1.kdl attach -c windows-mcp-real-hardware-e2e-v001`
-   (layout written to
-   `B:\_KwinanaAIContextEngineering\specifications\CAICEWAC\workspaces\`), after which
-   this becomes tab `00_leader-claude-M` and the live single-writer message/reply round
+   `zellij --layout test/real-hardware/workspaces/windows-mcp-real-hardware-e2e-v0.0.1.kdl attach -c windows-mcp-real-hardware-e2e-v001`
+   (layout moved in-repo on 2026-07-12 to `test/real-hardware/workspaces/` — see the
+   tracking record for the path-pattern rationale; the SAWEng demo-runner script in
+   that same directory is the preferred idempotent launcher), after which this
+   becomes tab `00_leader-claude-M` and the live single-writer message/reply round
    trip to a recipient tab becomes attemptable.

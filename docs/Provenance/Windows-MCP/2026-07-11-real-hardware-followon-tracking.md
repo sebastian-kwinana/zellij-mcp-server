@@ -64,10 +64,14 @@ can be edited or deleted; a merged commit cannot.
   do not apply on real Windows). This is the first-ever local Windows build/test of
   this repository; previously only GitHub's cloud `windows-latest` runner had ever
   built or tested it on Windows.
-- `windows-mcp-real-hardware-e2e-v0.0.1.kdl` written to
-  `B:\_KwinanaAIContextEngineering\specifications\CAICEWAC\workspaces\` — a
-  CAMSO-Core-mapped, CAICEWAC-conventioned Zellij session layout adapting the real,
-  working precedent `spof-agy-caicewac-v0.0.1.kdl`.
+- `windows-mcp-real-hardware-e2e-v0.0.1.kdl` written — a CAMSO-Core-mapped,
+  CAICEWAC-conventioned Zellij session layout adapting the operator's real, working
+  precedent `spof-agy-caicewac-v0.0.1.kdl`. *(2026-07-12 update: originally written
+  to the operator's out-of-tree specifications library; moved in-repo to
+  `test/real-hardware/workspaces/` — that library is reserved for production-ready
+  reusable reference specs, and the per-test-category `workspaces/` directory is now
+  the foundational, self-documenting filesystem pattern for future MAIESAW-Engine
+  work. See `test/real-hardware/workspaces/AGENTS.md`.)*
 
 ## What's tracked next
 
