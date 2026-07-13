@@ -15,9 +15,12 @@ it is load-bearing in this repo.
 
 Any CLI/runtime that hosts a reasoning AI agent with tool use: Claude Code
 (`claude`), xAI Grok Build CLI (`grok`), Google Antigravity CLI (`agy`), GitHub
-Copilot agent, etc. Used throughout the multi-harness work (Issue #6): this
-project's value proposition includes being loadable, simultaneously, by multiple
-AAAHs on one machine.
+Copilot CLI (`copilot`), etc. Used throughout the multi-harness work (Issue #6):
+this project's value proposition includes being loadable, simultaneously, by
+multiple AAAHs on one machine. **`agy` status (2026-07-13):** free-tier usage
+limits are low enough (multi-day reset wait) to block planned autonomous use;
+kept registered and documented as a best-effort fallback recipient/reviewer, not
+a primary AISP-triad leg — see AISP below.
 
 ## AIE — Agentic Intelligent Entity *(operator framework)*
 
@@ -27,6 +30,21 @@ over time, and adaptively revises strategy from feedback — rather than emittin
 fixed responses to stimuli. Both the humans and the AI agents collaborating in a
 workspace are AIEs; docs in this repo are deliberately written to be legible to
 both.
+
+## AISP — AI Service Provider
+
+The organization behind an AI model family, distinct from the AAAH that hosts
+it (e.g. Anthropic's Claude vs. the Claude Code harness). This project's
+review discipline (Issue #6-adjacent) uses a three-AISP triad so no single
+provider's judgment or outage/rate-limit gates a review: **Anthropic**
+(Claude Code sub-agents, primary), **xAI** (`grok`, headless local reviewer —
+see `docs/Guides/GROK-HEADLESS-REVIEWS.md`), and **OpenAI** (GitHub Copilot
+CLI/PR review, non-Claude model selection — see
+`docs/Guides/COPILOT-CLI-REVIEWS.md`). Google (`agy`/Antigravity) is a fourth
+AAAH kept in the workspace as a best-effort fallback, not a triad leg, per its
+free-tier rate limits (see AAAH above) — this was a deliberate 2026-07-13
+hotfix from an earlier plan that had provisionally slotted `agy` into the
+third-leg role.
 
 ## CAICEWAC — Cognitive Architecture Inspired Context Engineered Workspaces As Code *(operator framework)*
 
