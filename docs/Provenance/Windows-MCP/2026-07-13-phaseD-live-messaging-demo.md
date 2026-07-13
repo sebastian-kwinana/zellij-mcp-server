@@ -12,6 +12,27 @@ recipient = an operator-launched Claude Code instance (`claude` v2.1.206) in tab
 
 ---
 
+## AMENDMENT (2026-07-13, added same day): root-cause interpretation is PROVISIONAL
+
+This record's original framing of the recipient's refusal as "the HoTL safety
+property working as intended" / a "principled security refusal" is **one
+hypothesis, not an established root cause** — and attributing a multi-causal
+event to a single clean cause is precisely the overclaim HASEng should resist.
+The operator (Sebastian) has flagged this and is having the recipient agent
+("Claude-2") write its **own introspection** into why it refused; that
+first-person account is the *primary* evidence, superseding this record's
+outside interpretation where they conflict.
+
+The refusal is better understood as the joint product of **up to ~8 dimensions**
+(model; AAAH; auto-injected context files like `CLAUDE.md`/`AGENTS.md`;
+first-message structure/syntax looking non-human; CLI parameters; cross-session
+memory; permission mode; more) — disentangling which of these actually drove it
+is open research, tracked in `docs/research/` (see the agent-to-agent refusal
+terminology + dimensions note). Do not cite this record's "safety property
+working as intended" line as settled until that analysis + Claude-2's
+introspection land. Everything below about the *mechanism* (transport worked
+end-to-end) stands; only the *why-it-refused* interpretation is provisional.
+
 ## Headline outcome
 
 The demo **mechanically succeeded and behaviourally produced a better result
